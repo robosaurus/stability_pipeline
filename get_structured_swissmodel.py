@@ -7,7 +7,8 @@ import sys, requests, json
 
 def get_structured_swissmodel(uniprotac):
     '''This function takes a uniprot accession number and fetches the 'best'
-    homology model from available from the swissmodel repository'''
+    homology model from available from the swissmodel repository.
+    The model will be downloaded to the ./homology_models/ folder'''
 
     # for this we will use the swissmodel REST API.
     # for more information on that see: https://swissmodel.expasy.org/docs/repository_help#smr_api
@@ -43,9 +44,13 @@ def get_structured_swissmodel(uniprotac):
             best_structure = structure
 
     # This structure is associated with an URL, found in the dictionary
-    print(best_structure['coordinates'])
-
-    # print(structure_info['result']['structures'][0]['coordinates'])
+    model_url = best_structure['coordinates']
+    # donwload the structure. Note that models can easily dissapear from the
+    # swissmodel servers. Or be updated
+    r = requests.get(model_url)
+    # this way the model will be saved as uniprotAC_template_provider.pdb
+    with open('homology_models/' + uniprotac + '_' + best_structure['template'] + '_' + best_structure['provider'] + '.pdb', 'w') as f:
+        f.write(r.text)
 
 
 if __name__ == '__main__':
