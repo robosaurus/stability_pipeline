@@ -1,0 +1,5 @@
+
+# ignore the pesky .DS_store
+.DS_Store
+# ignore the temp vim files
+*~
