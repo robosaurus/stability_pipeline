@@ -34,6 +34,15 @@ def get_structured_pdb(uniprotid):
     # coverage seems like a key parameter, let's record that too
     coverage = structure_list[0]['coverage']
 
+    # donwload the structure
+    # for now i will just download the entire structures
+    # isolating chains, and cleaning it up for calculations, are going to have to wait.
+    structureURL = 'http://www.rcsb.org/pdb/files/{}.pdb'.format(best_structure)
+    r = requests.get(structureURL)
+    # this way the model will be saved as uniprotAC_template_provider.pdb
+    with open('experimental_structures/{}.pdb'.format(best_structure), 'w') as f:
+        f.write(r.text)
+
     return best_structure, chain_id, coverage
 
 
