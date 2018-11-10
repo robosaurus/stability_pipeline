@@ -19,7 +19,7 @@ def make_rosetta_mutfiles(fasta_file):
         fasta_seq += line.strip()
 
     print(len(fasta_seq))
-    name = fasta_file.split('.')[0]
+    name = fasta_file.split('/')[-1][0:-6]
     # this is where we will put the files
     path_to_mutfiles = 'mutfiles/{}_mutfiles/'.format(name)
     # check if the folder exists, otherwise make it
