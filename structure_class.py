@@ -16,6 +16,9 @@ class structure:
         # it might as well know which one
         self.uniprotac = UniprotAC
 
+    # also this class should know the path to rosetta:
+    path_to_rosetta = '/groups/sbinlab/software/Rosetta_2018_Oct_d557f8/source'
+
     # the most important method for the structureclass, is looking through the pdb for structures
     def get_pdb(self):
         '''this method looks in the pdb for the best experimental structure
@@ -125,9 +128,27 @@ class structure:
     # or should it be run locally?
     # let us start with a local boy
     # there is the relaxation of the structure first.
-    def relax_structure(self):
-        pass
 
-    # what can you learn from the foldX wrapper?
-    # 
+    def rosetta_relax(self):
+        '''this function should srun a rosetta relaxation of the structure'''
 
+        # it will run in it's own folder. that we can make a rosetta_runs/self.sys_name folder
+        self.path_to_run_folder = 'rosetta_runs/{}'.format(self.sys_name)
+        # check if the folder exists, otherwise make it
+        if not os.path.isdir(self.path_to_run_folder):
+            os.mkdir(self.path_to_run_folder)
+
+        # so the paths should be relative to that
+        self.path_to_cleaned_pdb = '../cleaned_structures/{}_{}.pdb'.format(self.sys_name, self.chain_id)
+
+        # first we put the pdbs to be relaxed in a list called lst
+        # because that is how the relax application wants it
+        lst_file = open(self.path_to_run_folder + '/lst', 'w')
+        lst_file.write(self.path_to_cleaned_pdb + '\n')
+        lst_file.close()
+
+        # and then we run the relax app
+        # from the appropriate rosetta run folder
+        shell_command = 'srun {}/relax_linuxgccrelease'.format(self.path_to_rosetta)
+        print('calling to the shell:{}'.format(shell_command))
+        #subprocess.call(shell_command, shell=True,  cwd=self.path_to_run_folder)
