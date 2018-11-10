@@ -139,7 +139,7 @@ class structure:
             os.mkdir(self.path_to_run_folder)
 
         # so the paths should be relative to that
-        self.path_to_cleaned_pdb = '../cleaned_structures/{}_{}.pdb'.format(self.sys_name, self.chain_id)
+        self.path_to_cleaned_pdb = '../../cleaned_structures/{}_{}.pdb'.format(self.sys_name, self.chain_id)
 
         # first we put the pdbs to be relaxed in a list called lst
         # because that is how the relax application wants it
@@ -149,6 +149,6 @@ class structure:
 
         # and then we run the relax app
         # from the appropriate rosetta run folder
-        shell_command = 'srun {}/relax_linuxgccrelease'.format(self.path_to_rosetta)
+        shell_command = 'srun {}/bin/relax.linuxgccrelease -ex1 -ex2 -flip_HNQ -no_optH false -use_input_sc -relax:constrain_relax_to_start_coords -relax:coord_constrain_sidechains -relax:ramp_constraints false -out:suffix _bn16_calibrated -beta -score:weights beta_nov16_cart.wts -ddg::legacy false -optimize_proline -in:file:s {}'.format(self.path_to_rosetta, self.path_to_cleaned_pdb)
         print('calling to the shell:{}'.format(shell_command))
-        #subprocess.call(shell_command, shell=True,  cwd=self.path_to_run_folder)
+        subprocess.call(shell_command, shell=True,  cwd=self.path_to_run_folder)
