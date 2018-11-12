@@ -104,8 +104,14 @@ class structure:
         for the structure. The .clean_up_and_isolate() method should be run first.
         The input is a fasta sequence, and the output is a folder in mutfiles/'''
 
+        # it will run in it's own folder. that we can make a rosetta_runs/self.sys_name folder
         # this is where we will put the files
-        path_to_mutfiles = 'mutfiles/{}_mutfiles/'.format(self.sys_name)
+        self.path_to_run_folder = 'rosetta_runs/{}'.format(self.sys_name)
+        # check if the folder exists, otherwise make it
+        if not os.path.isdir(self.path_to_run_folder):
+            os.mkdir(self.path_to_run_folder)
+
+        path_to_mutfiles = '{}/mutfiles/'.format(self.path_to_run_folder)
         # check if the folder exists, otherwise make it
         if not os.path.isdir(path_to_mutfiles):
             os.mkdir(path_to_mutfiles)
@@ -152,3 +158,24 @@ class structure:
         shell_command = 'srun {}/bin/relax.linuxgccrelease -ex1 -ex2 -flip_HNQ -no_optH false -use_input_sc -relax:constrain_relax_to_start_coords -relax:coord_constrain_sidechains -relax:ramp_constraints false -out:suffix _bn16_calibrated -beta -score:weights beta_nov16_cart.wts -ddg::legacy false -optimize_proline -in:file:s {}'.format(self.path_to_rosetta, self.path_to_cleaned_pdb)
         print('calling to the shell:{}'.format(shell_command))
         subprocess.call(shell_command, shell=True,  cwd=self.path_to_run_folder)
+
+    def submit_rosetta_cartesian(self):
+        '''this function writes an sbatch file, and submits it to slurm.
+        it should only be called after clean, make_mutfiles, and rosetta_relax'''
+
+        sbatch = open('{}/rosetta_cartesian_saturation_mutagenesis.sbatch'.format(self.path_to_run_folder), 'w')
+        sbatch.write('''#!/bin/sh
+#SBATCH --job-name=Rosetta_cartesian_ddg
+#SBATCH --array=0-{}%256
+#SBATCH --nodes=1
+#SBATCH --time=5:00:00
+#SBATCH --partition=sbinlab
+LST=(`ls mutfiles/mutfile*)
+OFFSET=0
+INDEX=$((OFFSET+SLURM_ARRAY_TASK_ID))
+echo $INDEX
+
+# launching rosetta
+{}/cartesian_ddg.linuxgccrelease_ddg -database {} -s {} -fa_max_dis 9.0 -ddg::dump_pdbs true -ddg:iterations 3 -ddg:mut_file ${LST[$INDEX]} -out:prefix ddg-$SLURM_ARRAY_JOB_ID-$SLURM_ARRAY_TASK_ID -score:weights beta_nov16_cart -cartesian -ddg:mut_only -bbnbr 1 -beta_cart
+    '''.format(len(self.fasta_seq), self.path_to_rosetta, self.sys_name + '_bn16_calibrated.pdb', self.path_to_rosetta[0:-5]+'/database/')
+        sbatch.close()
