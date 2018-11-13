@@ -178,7 +178,7 @@ INDEX=$((OFFSET+SLURM_ARRAY_TASK_ID))
 echo $INDEX
 
 # launching rosetta
-        {}/bin/cartesian_ddg.linuxgccrelease -database {} -s {} -fa_max_dis 9.0 -ddg::dump_pdbs true -ddg:iterations 3 -ddg:mut_file ${{LST[$INDEX]}} -out:prefix ddg-$SLURM_ARRAY_JOB_ID-$SLURM_ARRAY_TASK_ID -score:weights beta_nov16_cart -ddg:mut_only -ddg:bbnbrs 1 -beta_cart -:
+        {}/bin/cartesian_ddg.linuxgccrelease -database {} -s {} -fa_max_dis 9.0 -ddg::dump_pdbs true -ddg:iterations 3 -ddg:mut_file ${{LST[$INDEX]}} -out:prefix ddg-$SLURM_ARRAY_JOB_ID-$SLURM_ARRAY_TASK_ID -score:weights beta_nov16_cart -ddg:mut_only -ddg:bbnbrs 1 -beta_cart -ddg:mut_only
     '''.format(len(self.fasta_seq), self.path_to_rosetta, self.path_to_rosetta[0:-7]+'/database/', '*_bn16_calibrated*.pdb'))
         sbatch.close()
 
@@ -195,16 +195,21 @@ echo $INDEX
         subprocess.call(shell_command, cwd=self.path_to_run_folder, shell=True)
 
         # and then we read parse the file
-        self.rosetta_cartesian_ddgs_dict = rosetta_cartesian_read('{}/{}'.format(self.path_to_run_folder, self.rosetta_summary_file), self.fasta_seq)
-        print(self.rosetta_cartesian_ddgs_dict)
+        self.rosetta_cartesian_ddgs_dict = ddgs_from_dg(rosetta_cartesian_read('{}/{}'.format(self.path_to_run_folder, self.rosetta_summary_file), self.fasta_seq))
+        #print(self.rosetta_cartesian_ddgs_dict)
         # Now we just need to print it nicely into a file
         # there has got to be a more elegant way to do this...
         # ACDEFGHIKLMNPQRSTVWY
         # first open a file to write too
-        scorefile = open('ddg_file.txt', 'w')
-        scorefile_line = '{}' + '\t {}'*20 + '\n'
+        scorefile = open('prediction_files/{}_{}_ddg.txt'.format(self.sys_name, self.chain_id), 'w')
+        # write the header
+        scorefile.write('UAC_pos\t A \t C \t D \t E \t F \t G \t H \t I \t K \t L \t M \t N \t P \t Q \t R \t S \t T \t V \t W \t Y \n')
+        scorefile_line = '{}' + '\t {:.3}'*20 + '\n'
         for i in range(1, len(self.fasta_seq.strip()) + 1):
             try:
                 scorefile.write(scorefile_line.format(str(i), self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'A'],  self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'C'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'D'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'E'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'F'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'G'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'H'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'I'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'K'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'L'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'M'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'N'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'P'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'Q'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'R'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'S'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'T'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'V'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'W'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'Y']))
             except(KeyError):
                 continue
+
+        scorefile.write('some_information_about_structure and uac and variants')
+        scorefile.close()
