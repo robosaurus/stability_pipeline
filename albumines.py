@@ -33,13 +33,13 @@ class albumin:
 
         # amelie specifically asked us to look out for isoforms.
         # so here they are, though actually reacting on it not implemented yet:
-        requestURL = "https://www.ebi.ac.uk/proteins/api/proteins/{}/isoforms".format(self.uac)
-        r = requests.get(requestURL, headers={"Accept": "application/json"})
-        if not r.ok:
-            r.raise_for_status()
-            sys.exit()
-        # the response_body a json object, let's parse it as a python dict.
-        self.isoforms_list = json.loads(r.text)
+        #requestURL = "https://www.ebi.ac.uk/proteins/api/proteins/{}/isoforms".format(self.uac)
+        #r = requests.get(requestURL, headers={"Accept": "application/json"})
+        #if not r.ok:
+        #    r.raise_for_status()
+        #    sys.exit()
+        ## the response_body a json object, let's parse it as a python dict.
+        #self.isoforms_list = json.loads(r.text)
 
 
     def get_swismodel(self):

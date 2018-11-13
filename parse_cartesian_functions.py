@@ -62,7 +62,6 @@ def low_3_avg_dg_from_dg(dictionary_of_dGs):
         for item in dictionary_of_dGs[key]:
             list_of_values.append(float(item))
         list_of_values.sort()
-        print list_of_values
         avg_low_three[key] = np.mean(list_of_values[0:3])
     return avg_low_three
 

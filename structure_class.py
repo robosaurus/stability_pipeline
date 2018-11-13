@@ -4,6 +4,8 @@ import json
 import sys
 import subprocess
 import os
+# and some functions for parsing ddg_predictions
+from parse_cartesian_functions import rosetta_cartesian_read, ddgs_from_dg
 
 # this file defines the structure class.
 # it will be used by the albumin
@@ -155,7 +157,7 @@ class structure:
 
         # and then we run the relax app
         # from the appropriate rosetta run folder
-        shell_command = 'srun {}/bin/relax.linuxgccrelease -ex1 -ex2 -flip_HNQ -no_optH false -use_input_sc -relax:constrain_relax_to_start_coords -relax:coord_constrain_sidechains -relax:ramp_constraints false -out:suffix _bn16_calibrated -beta -score:weights beta_nov16_cart.wts -ddg::legacy false -optimize_proline -in:file:s {}'.format(self.path_to_rosetta, self.path_to_cleaned_pdb)
+        shell_command = 'srun {}/bin/relax.linuxgccrelease -ex1 -ex2 -flip_HNQ -use_input_sc -relax:constrain_relax_to_start_coords -relax:coord_constrain_sidechains -relax:ramp_constraints false -out:suffix _bn16_calibrated -beta -score:weights beta_nov16_cart.wts -ddg::legacy false -optimize_proline -in:file:s {}'.format(self.path_to_rosetta, self.path_to_cleaned_pdb)
         print('calling to the shell:{}'.format(shell_command))
         subprocess.call(shell_command, shell=True,  cwd=self.path_to_run_folder)
 
@@ -168,14 +170,41 @@ class structure:
 #SBATCH --job-name=Rosetta_cartesian_ddg
 #SBATCH --array=0-{}%256
 #SBATCH --nodes=1
-#SBATCH --time=5:00:00
+#SBATCH --time=10:00:00
 #SBATCH --partition=sbinlab
-LST=(`ls mutfiles/mutfile*)
+LST=(`ls mutfiles/mutfile*`)
 OFFSET=0
 INDEX=$((OFFSET+SLURM_ARRAY_TASK_ID))
 echo $INDEX
 
 # launching rosetta
-{}/cartesian_ddg.linuxgccrelease_ddg -database {} -s {} -fa_max_dis 9.0 -ddg::dump_pdbs true -ddg:iterations 3 -ddg:mut_file ${LST[$INDEX]} -out:prefix ddg-$SLURM_ARRAY_JOB_ID-$SLURM_ARRAY_TASK_ID -score:weights beta_nov16_cart -cartesian -ddg:mut_only -bbnbr 1 -beta_cart
-    '''.format(len(self.fasta_seq), self.path_to_rosetta, self.sys_name + '_bn16_calibrated.pdb', self.path_to_rosetta[0:-5]+'/database/')
+        {}/bin/cartesian_ddg.linuxgccrelease -database {} -s {} -fa_max_dis 9.0 -ddg::dump_pdbs true -ddg:iterations 3 -ddg:mut_file ${{LST[$INDEX]}} -out:prefix ddg-$SLURM_ARRAY_JOB_ID-$SLURM_ARRAY_TASK_ID -score:weights beta_nov16_cart -ddg:mut_only -ddg:bbnbrs 1 -beta_cart -:
+    '''.format(len(self.fasta_seq), self.path_to_rosetta, self.path_to_rosetta[0:-7]+'/database/', '*_bn16_calibrated*.pdb'))
         sbatch.close()
+
+    def parse_rosetta_ddgs(self):
+        '''This function parses the result of a Rosetta ddg submission,
+        It returns a dictionary with the variants as keys, and the ddgs as values'''
+
+        # first lets cat all the *.ddg files, into a single text
+        self.rosetta_summary_file = '{}_{}.rosetta_cartesian.dgs'.format(self.sys_name, self.chain_id)
+        # because i am an idiot, and we the only muts flag, i do this little grep thing
+        shell_command = 'cat *.ddg | grep -v WT > {}'.format(self.rosetta_summary_file)
+        print('calling to the shell:')
+        print(shell_command)
+        subprocess.call(shell_command, cwd=self.path_to_run_folder, shell=True)
+
+        # and then we read parse the file
+        self.rosetta_cartesian_ddgs_dict = rosetta_cartesian_read('{}/{}'.format(self.path_to_run_folder, self.rosetta_summary_file), self.fasta_seq)
+        print(self.rosetta_cartesian_ddgs_dict)
+        # Now we just need to print it nicely into a file
+        # there has got to be a more elegant way to do this...
+        # ACDEFGHIKLMNPQRSTVWY
+        # first open a file to write too
+        scorefile = open('ddg_file.txt', 'w')
+        scorefile_line = '{}' + '\t {}'*20 + '\n'
+        for i in range(1, len(self.fasta_seq.strip()) + 1):
+            try:
+                scorefile.write(scorefile_line.format(str(i), self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'A'],  self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'C'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'D'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'E'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'F'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'G'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'H'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'I'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'K'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'L'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'M'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'N'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'P'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'Q'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'R'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'S'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'T'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'V'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'W'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'Y']))
+            except(KeyError):
+                continue
