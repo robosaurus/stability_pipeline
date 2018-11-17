@@ -22,9 +22,9 @@ class structure:
     path_to_rosetta = '/groups/sbinlab/software/Rosetta_2018_Oct_d557f8/source'
 
     # the most important method for the structureclass, is looking through the pdb for structures
-    def get_pdb(self):
+    def get_best_pdb(self):
         '''this method looks in the pdb for the best experimental structure
-        and downloads it'''
+        and downloads it, 'best' as defined by the pdb themselves'''
 
         # for this we will use the PDBe REST API.
         # This request is based on SIFTS
@@ -53,8 +53,7 @@ class structure:
         self.coverage = structure_list[0]['coverage']
 
         # donwload the structure
-        # for now i will just download the entire structures
-        # isolating chains, and cleaning it up for calculations, are going to have to wait.
+        # for now just download the entire structures
         structureURL = 'http://www.rcsb.org/pdb/files/{}.pdb'.format(self.best_structure)
         r = requests.get(structureURL)
         # this way the model will be saved as uniprotAC_pdbname.pdb
@@ -75,7 +74,7 @@ class structure:
         version of Rosetta'''
 
         # let's just call the script from the shell.
-        # it may seem a little clumsy to call a python cript
+        # it may seem a little clumsy to call a python script
         # from a shell command spawned from another python script.
         # but this way i do not have to modify their script :)
         # also, they use python2
@@ -138,7 +137,9 @@ class structure:
     # there is the relaxation of the structure first.
 
     def rosetta_relax(self):
-        '''this function should srun a rosetta relaxation of the structure'''
+        '''this function sruns a rosetta relaxation of the structure,
+        it follows the recomended protocol for a pre-relaxation prior to
+        a cartesian_ddg run'''
 
         # it will run in it's own folder. that we can make a rosetta_runs/self.sys_name folder
         self.path_to_run_folder = 'rosetta_runs/{}'.format(self.sys_name)
@@ -156,8 +157,19 @@ class structure:
         lst_file.close()
 
         # and then we run the relax app
+
         # from the appropriate rosetta run folder
-        shell_command = 'srun {}/bin/relax.linuxgccrelease -ex1 -ex2 -flip_HNQ -use_input_sc -relax:constrain_relax_to_start_coords -relax:coord_constrain_sidechains -relax:ramp_constraints false -out:suffix _bn16_calibrated -beta -score:weights beta_nov16_cart.wts -ddg::legacy false -optimize_proline -in:file:s {}'.format(self.path_to_rosetta, self.path_to_cleaned_pdb)
+        #shell_command = 'srun {}/bin/relax.linuxgccrelease -ex1 -ex2 -flip_HNQ -use_input_sc -relax:constrain_relax_to_start_coords -relax:coord_constrain_sidechains -relax:ramp_constraints false -out:suffix _bn16_calibrated -beta -score:weights beta_nov16_cart.wts -ddg::legacy false -optimize_proline -in:file:s {}'.format(self.path_to_rosetta, self.path_to_cleaned_pdb)
+
+        # remember to change nstructs to 20.
+        shell_command = 'srun {}/bin/relax.linuxgccrelease -s {} -use_input_sc \
+-constrain_relax_to_start_coords -ignore_unrecognized_res \
+-nstruct 1 \
+-relax:coord_constrain_sidechains  \
+-relax:cartesian-score:weights ref2015_cart \
+-relax:min_type lbfgs_armijo_nonmonotone \
+-out:suffix _bn15_calibrated \
+-relax:script rosetta_parameters/cart2.script'
         print('calling to the shell:{}'.format(shell_command))
         subprocess.call(shell_command, shell=True,  cwd=self.path_to_run_folder)
 
@@ -165,6 +177,7 @@ class structure:
         '''this function writes an sbatch file, and submits it to slurm.
         it should only be called after clean, make_mutfiles, and rosetta_relax'''
 
+        # you should change to a more reliale way of specifying the structure. Maybe a selection among the 20 in rosetta_relax
         sbatch = open('{}/rosetta_cartesian_saturation_mutagenesis.sbatch'.format(self.path_to_run_folder), 'w')
         sbatch.write('''#!/bin/sh
 #SBATCH --job-name=Rosetta_cartesian_ddg
@@ -179,7 +192,7 @@ echo $INDEX
 
 # launching rosetta
         {}/bin/cartesian_ddg.linuxgccrelease -database {} -s {} -fa_max_dis 9.0 -ddg::dump_pdbs true -ddg:iterations 3 -ddg:mut_file ${{LST[$INDEX]}} -out:prefix ddg-$SLURM_ARRAY_JOB_ID-$SLURM_ARRAY_TASK_ID -score:weights beta_nov16_cart -ddg:mut_only -ddg:bbnbrs 1 -beta_cart -ddg:mut_only
-    '''.format(len(self.fasta_seq), self.path_to_rosetta, self.path_to_rosetta[0:-7]+'/database/', '*_bn16_calibrated*.pdb'))
+    '''.format(len(self.fasta_seq), self.path_to_rosetta, self.path_to_rosetta[0:-7]+'/database/', '*_bn15_calibrated*.pdb'))
         sbatch.close()
 
     def parse_rosetta_ddgs(self):
@@ -188,7 +201,7 @@ echo $INDEX
 
         # first lets cat all the *.ddg files, into a single text
         self.rosetta_summary_file = '{}_{}.rosetta_cartesian.dgs'.format(self.sys_name, self.chain_id)
-        # because i am an idiot, and we the only muts flag, i do this little grep thing
+        # because i am an idiot, and forgot the -only_muts flag, i do this little grep thing
         shell_command = 'cat *.ddg | grep -v WT > {}'.format(self.rosetta_summary_file)
         print('calling to the shell:')
         print(shell_command)
@@ -200,7 +213,7 @@ echo $INDEX
         # Now we just need to print it nicely into a file
         # there has got to be a more elegant way to do this...
         # ACDEFGHIKLMNPQRSTVWY
-        # first open a file to write too
+        # first open a file to write to
         scorefile = open('prediction_files/{}_{}_ddg.txt'.format(self.sys_name, self.chain_id), 'w')
         # write the header
         scorefile.write('UAC_pos\t A \t C \t D \t E \t F \t G \t H \t I \t K \t L \t M \t N \t P \t Q \t R \t S \t T \t V \t W \t Y \n')
