@@ -169,7 +169,7 @@ class structure:
 -relax:cartesian-score:weights ref2015_cart \
 -relax:min_type lbfgs_armijo_nonmonotone \
 -out:suffix _bn15_calibrated \
--relax:script rosetta_parameters/cart2.script'
+-relax:script ../../rosetta_parameters/cart2.script'.format(self.path_to_rosetta, self.path_to_cleaned_pdb)
         print('calling to the shell:{}'.format(shell_command))
         subprocess.call(shell_command, shell=True,  cwd=self.path_to_run_folder)
 
