@@ -150,23 +150,18 @@ class structure:
         # so the paths should be relative to that
         self.path_to_cleaned_pdb = '../../cleaned_structures/{}_{}.pdb'.format(self.sys_name, self.chain_id)
 
-        # first we put the pdbs to be relaxed in a list called lst
-        # because that is how the relax application wants it
-        lst_file = open(self.path_to_run_folder + '/lst', 'w')
-        lst_file.write(self.path_to_cleaned_pdb + '\n')
-        lst_file.close()
-
         # and then we run the relax app
-
         # from the appropriate rosetta run folder
-        #shell_command = 'srun {}/bin/relax.linuxgccrelease -ex1 -ex2 -flip_HNQ -use_input_sc -relax:constrain_relax_to_start_coords -relax:coord_constrain_sidechains -relax:ramp_constraints false -out:suffix _bn16_calibrated -beta -score:weights beta_nov16_cart.wts -ddg::legacy false -optimize_proline -in:file:s {}'.format(self.path_to_rosetta, self.path_to_cleaned_pdb)
-
-        # remember to change nstructs to 20.
+        # the relax protocol is taken from the rosetta docs: https://www.rosettacommons.org/docs/latest/cartesian-ddG
+        # and it is dependent on the cart2.script file in the rosetta_parameters folder
+        # remember to change nstructs to 20, when you are done testing
         shell_command = 'srun {}/bin/relax.linuxgccrelease -s {} -use_input_sc \
--constrain_relax_to_start_coords -ignore_unrecognized_res \
+-constrain_relax_to_start_coords \
+-ignore_unrecognized_res \
 -nstruct 1 \
 -relax:coord_constrain_sidechains  \
--relax:cartesian-score:weights ref2015_cart \
+-relax:cartesian \
+-score:weights ref2015_cart \
 -relax:min_type lbfgs_armijo_nonmonotone \
 -out:suffix _bn15_calibrated \
 -relax:script ../../rosetta_parameters/cart2.script'.format(self.path_to_rosetta, self.path_to_cleaned_pdb)
@@ -197,7 +192,8 @@ echo $INDEX
 
     def parse_rosetta_ddgs(self):
         '''This function parses the result of a Rosetta ddg submission,
-        It returns a dictionary with the variants as keys, and the ddgs as values'''
+        It returns a dictionary with the variants as keys, and the ddgs as values.
+        It only works if the sbatch job has finished.'''
 
         # first lets cat all the *.ddg files, into a single text
         self.rosetta_summary_file = '{}_{}.rosetta_cartesian.dgs'.format(self.sys_name, self.chain_id)
@@ -216,6 +212,7 @@ echo $INDEX
         # first open a file to write to
         scorefile = open('prediction_files/{}_{}_ddg.txt'.format(self.sys_name, self.chain_id), 'w')
         # write the header
+        scorefile.write('Rosetta cartesian_ddg stability predictions for {}\n'.format(self.sys_name))
         scorefile.write('UAC_pos\t A \t C \t D \t E \t F \t G \t H \t I \t K \t L \t M \t N \t P \t Q \t R \t S \t T \t V \t W \t Y \n')
         scorefile_line = '{}' + '\t {:.3}'*20 + '\n'
         for i in range(1, len(self.fasta_seq.strip()) + 1):
@@ -224,5 +221,9 @@ echo $INDEX
             except(KeyError):
                 continue
 
-        scorefile.write('some_information_about_structure and uac and variants')
+        scorefile.write('Exac variants for uniprot Accesion {}:\n'.format(self.uniprotac))
+        scorefile.write(self.exac_variants)
+        scorefile.write('/n')
+        scorefile.write('clinvar variants for uniprot Accesion {}:\n'.format(self.uniprotac))
+        scorefile.write(self.clinvar_variants)
         scorefile.close()
