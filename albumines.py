@@ -7,7 +7,7 @@ import sys
 class albumin:
 
     def __init__(self, uniprotAC):
-        self.uac = uniprotAC
+        self.uniprotAC = uniprotAC
 
     def get_sequenced(self):
         '''this method gets downloads the fasta file of the uniprot AC,
@@ -15,7 +15,7 @@ class albumin:
         # the following information should be gotten from a lookup in uniprot
 
         # use the good old restful API
-        requestURL = "https://www.ebi.ac.uk/proteins/api/proteins/" + self.uac
+        requestURL = "https://www.ebi.ac.uk/proteins/api/proteins/" + self.uniprotAC
         r = requests.get(requestURL, headers={"Accept": "application/json"})
         if not r.ok:
             r.raise_for_status()
@@ -41,7 +41,7 @@ class albumin:
         ## the response_body a json object, let's parse it as a python dict.
         #self.isoforms_list = json.loads(r.text)
 
-    def get_variants(self, uniprotAC):
+    def get_variants(self):
         '''This method gets the variation data from uniprot and stores it under self.exac_variants and self.clinvar_variants.
         For now it only records ClinVar and ExAC entries'''
 
@@ -51,7 +51,7 @@ class albumin:
 
         # documentation of the proteins API: https://www.ebi.ac.uk/proteins/api/doc/#!/variation/getVariation
 
-        requestURL = "https://www.ebi.ac.uk/proteins/api/variation?offset=0&size=100&accession=" + uniprotAC
+        requestURL = "https://www.ebi.ac.uk/proteins/api/variation?offset=0&size=100&accession=" + self.uniprotAC
         r = requests.get(requestURL, headers={"Accept": "application/json"})
 
         if not r.ok:
@@ -94,6 +94,7 @@ class albumin:
                         self.exac_variants[element['id']] = [wtAA + pos + alt_seq, type]
                         # To DO: add frequuencies
                         # this will most likely be a seperate lookup with the eXac API
+
 
     def get_swismodel(self):
         # same as pdb, but for homology models.

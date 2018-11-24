@@ -100,6 +100,65 @@ class structure:
         # determine the coverage (is this enough structure?)
         # and determine a numbering
 
+    def get_swiss_model(self, get_model_number=0):
+        '''this method gets the best available homology model,
+        from the swissmodel repository.
+        Swissmodel provides a list of models, the get_model_number variable
+        determines which model index to fetch (counting from 0). The default is to get the first (the 'best')'''
+
+        # we will rquest models from the swissmodel repository, through their restful API
+        # documented here: https://swissmodel.expasy.org/docs/repository_help
+        # or checkout the more fun version of the docs here:
+        # https://swissmodel.expasy.org/docs/smr_openapi
+
+        requestURL = 'https://swissmodel.expasy.org/repository/uniprot/{}.json?provider=swissmodel'.format(self.uniprotac)
+
+        r = requests.get(requestURL, headers={"Accept": "application/json"})
+        # we check that this is an entry at swissmodel
+        if not r.ok:
+            r.raise_for_status()
+            sys.exit()
+
+        structure_info = json.loads(r.text)
+        # all the structures are available as a list here:
+        list_of_models = structure_info['result']['structures']
+        print('swissmodel has {} models in the repo for uniprot accession {}'.format(len(list_of_models), self.uniprotac))
+        print('getting the one at index {}'.format(get_model_number))
+        model_info = list_of_models[get_model_number]
+        # the model_info is a dictionary with the following keys:
+        # dict_keys(['similarity', 'gmqe', 'oligo-state', 'crc64', 'coverage', 'alignment', 'md5', 'from', 'qmean_norm', 'coordinates', 'to', 'identity', 'template', 'provider', 'qmean', 'method'])
+
+        # first let's record some information on the structure
+        # firstly the sequence id:
+        self.seq_id = model_info['identity']
+        # coverage seems like a key parameter
+        self.coverage = model_info['coverage']
+        # and of course the template that the model is based on
+        self.template = model_info['template']
+        # they even provide an alignment. nifty :)
+        self.alignment = model_info['alignment']
+        # let's get some model evaluation metrics too. The qmean, and the normalised qmean.
+        # I assume this is qmean4
+        # for information on qmean evaluation see:
+       # Benkert, P., Tosatto, S.C.E. and Schomburg, D. (2008). "QMEAN: A comprehensive scoring function for model quality assessment." Proteins: Structure, Function, and Bioinformatics, 71(1):261-277.
+        self.qmean = model_info['qmean']
+        self.qmean_norm = model_info['qmean_norm']
+
+        # we assign the structure a systematic name, based on uniprotAC, template used and the sequence ID,
+        self.sys_name = '{}_{}_sm{}'.format(self.uniprotac, self.template, self.seq_id)
+        print(self.sys_name)
+
+        path_to_pdbfile = 'homology_models/{}.pdb'.format(self.sys_name)
+
+        model_url = model_info['coordinates']
+        r = requests.get(model_url)
+        with open(path_to_pdbfile, 'w') as f:
+            f.write(r.text)
+
+        self.path = path_to_pdbfile
+
+        # Note that the swissmodel repo is constantly updated, and models can dissapear from their servers.
+
     def make_mutfiles(self):
         '''this function makes Rosetta mutfiles, specifying all the possible AA substitutions
         for the structure. The .clean_up_and_isolate() method should be run first.
@@ -172,13 +231,15 @@ class structure:
         '''this function writes an sbatch file, and submits it to slurm.
         it should only be called after clean, make_mutfiles, and rosetta_relax'''
 
-        # you should change to a more reliale way of specifying the structure. Maybe a selection among the 20 in rosetta_relax
+        # you should change to a more reliable way of specifying the structure. Maybe a selection among the 20 in rosetta_relax
+        # the memory spec is based on some brief testing. 200 M is not enough 1000 is. (based on a ~800 residue protein)
         sbatch = open('{}/rosetta_cartesian_saturation_mutagenesis.sbatch'.format(self.path_to_run_folder), 'w')
         sbatch.write('''#!/bin/sh
 #SBATCH --job-name=Rosetta_cartesian_ddg
 #SBATCH --array=0-{}%256
 #SBATCH --nodes=1
 #SBATCH --time=10:00:00
+#SBATCH --mem 1000
 #SBATCH --partition=sbinlab
 LST=(`ls mutfiles/mutfile*`)
 OFFSET=0
@@ -186,11 +247,11 @@ INDEX=$((OFFSET+SLURM_ARRAY_TASK_ID))
 echo $INDEX
 
 # launching rosetta
-        {}/bin/cartesian_ddg.linuxgccrelease -database {} -s {} -fa_max_dis 9.0 -ddg::dump_pdbs true -ddg:iterations 3 -ddg:mut_file ${{LST[$INDEX]}} -out:prefix ddg-$SLURM_ARRAY_JOB_ID-$SLURM_ARRAY_TASK_ID -score:weights beta_nov16_cart -ddg:mut_only -ddg:bbnbrs 1 -beta_cart -ddg:mut_only
+{}/bin/cartesian_ddg.linuxgccrelease -database {} -s {} -fa_max_dis 9.0 -ddg::dump_pdbs true -ddg:iterations 3 -ddg:mut_file ${{LST[$INDEX]}} -out:prefix ddg-$SLURM_ARRAY_JOB_ID-$SLURM_ARRAY_TASK_ID -score:weights beta_nov16_cart -ddg:mut_only -ddg:bbnbrs 1 -beta_cart -ddg:mut_only
     '''.format(len(self.fasta_seq), self.path_to_rosetta, self.path_to_rosetta[0:-7]+'/database/', '*_bn15_calibrated*.pdb'))
         sbatch.close()
 
-    def parse_rosetta_ddgs(self):
+    def parse_rosetta_ddgs(self, exac_variants='', clinvar_variants=''):
         '''This function parses the result of a Rosetta ddg submission,
         It returns a dictionary with the variants as keys, and the ddgs as values.
         It only works if the sbatch job has finished.'''
@@ -222,8 +283,13 @@ echo $INDEX
                 continue
 
         scorefile.write('Exac variants for uniprot Accesion {}:\n'.format(self.uniprotac))
-        scorefile.write(self.exac_variants)
-        scorefile.write('/n')
+        for key in exac_variants:
+            scorefile.write(key)
+            for element in exac_variants[key]:
+                scorefile.write(element)
         scorefile.write('clinvar variants for uniprot Accesion {}:\n'.format(self.uniprotac))
-        scorefile.write(self.clinvar_variants)
+        for key in clinvar_variants:
+            scorefile.write(key)
+            for element in clinvar_variants[key]:
+                scorefile.write(element)
         scorefile.close()
