@@ -162,7 +162,7 @@ class structure:
     def make_mutfiles(self):
         '''this function makes Rosetta mutfiles, specifying all the possible AA substitutions
         for the structure. The .clean_up_and_isolate() method should be run first.
-        The input is a fasta sequence, and the output is a folder in mutfiles/'''
+        The input is a fasta sequence, and the output is a folder in rosetta_runs/<structure_name>/mutfiles/'''
 
         # it will run in it's own folder. that we can make a rosetta_runs/self.sys_name folder
         # this is where we will put the files
@@ -179,8 +179,12 @@ class structure:
         # write the files
         # each residue will be a single file, with the 20 possible AA subs (including itself)
         # rosetta counts from 1 and not 0 i think
-        for residue_number in range(1, len(self.fasta_seq)+1):
-            mutfile = open(path_to_mutfiles+'mutfile{}'.format(str(residue_number)), 'w')
+        # also watch out for the extra character in self.fasta_seq.
+        # writing mutfiles for:
+        print(self.fasta_seq)
+        for residue_number in range(1, len(self.fasta_seq)):
+            # pad the mutfile numbers with 0'es, to make it more traceable, since the sbatch makes an ls call.
+            mutfile = open(path_to_mutfiles+'mutfile{:0>5}'.format(str(residue_number)), 'w')
             mutfile.write('total 20\n')
             # and then a line for each type of AA
             for AAtype in 'ACDEFGHIKLMNPQRSTVWY':
