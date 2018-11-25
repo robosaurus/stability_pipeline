@@ -280,16 +280,35 @@ echo $INDEX
             try:
                 scorefile.write(scorefile_line.format(str(i), self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'A'],  self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'C'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'D'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'E'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'F'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'G'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'H'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'I'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'K'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'L'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'M'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'N'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'P'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'Q'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'R'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'S'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'T'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'V'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'W'], self.rosetta_cartesian_ddgs_dict[self.fasta_seq[i-1]+str(i)+'Y']))
             except(KeyError):
-                continue
+                print('missing DATA! ', i)
 
-        scorefile.write('Exac variants for uniprot Accesion {}:\n'.format(self.uniprotac))
-        for key in exac_variants:
-            scorefile.write(key)
-            for element in exac_variants[key]:
-                scorefile.write(element)
-        scorefile.write('clinvar variants for uniprot Accesion {}:\n'.format(self.uniprotac))
-        for key in clinvar_variants:
-            scorefile.write(key)
-            for element in clinvar_variants[key]:
-                scorefile.write(element)
+        if exac_variants != '':
+            scorefile.write('Exac variants for uniprot Accesion {}:\n'.format(self.uniprotac))
+            for key in exac_variants:
+                scorefile.write(key)
+                scorefile.write(': ')
+                for element in exac_variants[key]:
+                    scorefile.write(element)
+                    scorefile.write(' ')
+                scorefile.write('\n')
+        if clinvar_variants != '':
+            scorefile.write('clinvar variants for uniprot Accesion {}:\n'.format(self.uniprotac))
+            for key in clinvar_variants:
+                scorefile.write(key)
+                scorefile.write(': ')
+                for element in clinvar_variants[key]:
+                    scorefile.write(element)
+                    scorefile.write(' ')
+                scorefile.write('\n')
+
         scorefile.close()
+
+    def align_pdb_to_uniprot(self):
+        '''This method gets the alignment of the pdb residues to the uniprot sequence.
+        The alignment is fetched from SIFTS.
+        It is stored under self.alignment'''
+
+        # in order to maintain the uniprot numbering scheme we need an alignment of the pdb residues
+        # to the uniprot sequence. We get it from SIFTS, the same system that helped us find pdbs in
+        # the first place.
+
