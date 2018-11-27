@@ -88,7 +88,7 @@ class albumin:
                     # and put them in the dicts.
                     # I would have like to have the substiturion as a key, and the ids as values.
                     # but since several variants can have the same sub, we have to do it the other way around.
-                    element['name'] == 'ClinVar':
+                    if element['name'] == 'ClinVar':
                         self.clinvar_variants[element['id']] = [wtAA + pos + alt_seq, ctype]
                         # TO DO: add clinical significance, maybe
                     elif element['name'] == 'ExAC':
@@ -102,12 +102,12 @@ class albumin:
         variant_dict['exac_variants'] = self.exac_variants
         variant_dict['clinvar_variants'] = self.clinvar_variants
 
-        self.path_to_accesion_folder = 'uniprot_accessions/{}'.format(self.uniprotAC)
+        self.path_to_accession_folder = 'uniprot_accessions/{}'.format(self.uniprotAC)
         # check if it is a folder, otherwise make it
-        if not os.path.isdir(self.path_to_accesion_folder):
-            os.mkdir(self.path_to_accesion_folder)
+        if not os.path.isdir(self.path_to_accession_folder):
+            os.mkdir(self.path_to_accession_folder)
         # and dump the jsons there
-        with open('{}/variants.json'.format(self.path_to_accesion_folder), 'w') as variant_file:
+        with open('{}/variants.json'.format(self.path_to_accession_folder), 'w') as variant_file:
             json.dump(variant_dict, variant_file)
 
     def get_swismodel(self):
