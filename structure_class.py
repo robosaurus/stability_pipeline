@@ -232,12 +232,13 @@ class structure:
 
         # you should change to a more reliable way of specifying the structure. Maybe a selection among the 20 in rosetta_relax
         # the memory spec is based on some brief testing. 200 M is not enough 1000 is. (based on a ~800 residue protein)
+        # turns out it is not enough at all!!!!
         # change nstructs to 3, when you are done testing.
         path_to_sbatch = '{}/rosetta_cartesian_saturation_mutagenesis.sbatch'.format(self.path_to_run_folder)
         sbatch = open(path_to_sbatch, 'w')
         sbatch.write('''#!/bin/sh
 #SBATCH --job-name=Rosetta_cartesian_ddg
-#SBATCH --array=0-{}%256
+#SBATCH --array=0-{}
 #SBATCH --nodes=1
 #SBATCH --time=10:00:00
 #SBATCH --mem 1000
