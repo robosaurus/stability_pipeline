@@ -8,7 +8,7 @@ from parse_cartesian_functions import rosetta_cartesian_read, ddgs_from_dg
 # it needs to be launched by itself, so we can submit it through slurm, and tell it to wait.
 
 
-def parse_rosetta_ddgs(path_to_mapping, sys_name, chain_id, fasta_seq, exac_variants='', clinvar_variants=''):
+def parse_rosetta_ddgs(path_to_mapping, sys_name, chain_id, fasta_seq, uniprotAC):
     '''This function parses the result of a Rosetta ddg submission,
         It returns a dictionary with the variants as keys, and the ddgs as values.
         It only works if the sbatch job has finished.'''
@@ -49,28 +49,33 @@ def parse_rosetta_ddgs(path_to_mapping, sys_name, chain_id, fasta_seq, exac_vari
         except(KeyError):
             print('missing DATA! ', i)
 
-    if exac_variants != '':
-        scorefile.write('Exac variants for uniprot Accesion {}:\n'.format(sys_name.split()[0]))
-        for key in exac_variants:
-            scorefile.write(key)
-            scorefile.write(': ')
-            for element in exac_variants[key]:
-                scorefile.write(element)
-                scorefile.write(' ')
-            scorefile.write('\n')
-    if clinvar_variants != '':
-        scorefile.write('clinvar variants for uniprot Accesion {}:\n'.format(sys_name.split()[0]))
-        for key in clinvar_variants:
-            scorefile.write(key)
-            scorefile.write(': ')
-            for element in clinvar_variants[key]:
-                scorefile.write(element)
-                scorefile.write(' ')
-            scorefile.write('\n')
+    # now parse the variant information and put it at the end.
+    path_to_variants = 'uniprot_accessions/{}/variants.json'.format(uniprotAC)
+    with open(path_to_variants, 'r') as variant_file:
+        variant_dict = json.load(variant_file)
+
+    scorefile.write('Exac variants for uniprot Accession {}:\n'.format(uniprotAC))
+    for key in variant_dict['exac_variants']:
+        scorefile.write(key)
+        scorefile.write(': ')
+        for element in variant_dict['exac_variants'][key]:
+            scorefile.write(element)
+            scorefile.write(' ')
+        scorefile.write('\n')
+
+    # and the clinvar variants
+    scorefile.write('clinvar variants for uniprot Accession {}:\n'.format(uniprotAC))
+    for key in variant_dict['clinvar_variants']:
+        scorefile.write(key)
+        scorefile.write(': ')
+        for element in variant_dict['clinvar_variants'][key]:
+            scorefile.write(element)
+            scorefile.write(' ')
+        scorefile.write('\n')
 
     scorefile.close()
 
 
 # and since we need to call this from the shell
 if __name__ == '__main__':
-    parse_rosetta_ddgs(path_to_mapping=sys.argv[1], sys_name=sys.argv[2], chain_id=sys.argv[3], fasta_seq=sys.argv[4], exac_variants='', clinvar_variants='')
+    parse_rosetta_ddgs(path_to_mapping=sys.argv[1], sys_name=sys.argv[2], chain_id=sys.argv[3], fasta_seq=sys.argv[4], uniprotAC=sys.argv[5])
