@@ -273,8 +273,6 @@ echo $INDEX
         with open(path_to_mapping, 'r') as mapping_file:
             pdb_to_uniprot = json.load(mapping_file)
 
-        print(pdb_to_uniprot)
-
         # and then we parse the file, with the functions imported from parse_cartesian_functions.py
         rosetta_cartesian_ddgs_dict = ddgs_from_dg(rosetta_cartesian_read('{}/{}'.format(path_to_run_folder, rosetta_summary_file), fasta_seq))
         # Now we just need to print it nicely into a file
@@ -331,8 +329,8 @@ echo $INDEX
 
 # This sbatch script launches the parse parse_rosetta_ddgs function, from the parse_cartesian_ddgs
 # it will output a file in the prediction_files/ folder.
-python3 parse_rosetta_ddgs.py {} {} {} {}
-'''.format(self.path_to_mapping_dict, self.sys_name, self.chain_id, self.fasta_seq))
+python3 parse_rosetta_ddgs.py {} {} {} {} {}
+'''.format(self.path_to_mapping_dict, self.sys_name, self.chain_id, self.fasta_seq, self.uniprotac))
         score_sbatch.close()
 
         return score_sbatch_path
