@@ -4,9 +4,6 @@ import json
 import sys
 import subprocess
 import os
-import xml.etree.ElementTree as ET
-# and some functions for parsing ddg_predictions
-from parse_cartesian_functions import rosetta_cartesian_read, ddgs_from_dg
 
 # this file defines the structure class.
 # it will be used by the albumin
@@ -241,7 +238,7 @@ class structure:
 #SBATCH --array=0-{}
 #SBATCH --nodes=1
 #SBATCH --time=10:00:00
-#SBATCH --mem 1000
+#SBATCH --mem 5000
 #SBATCH --partition=sbinlab
 LST=(`ls mutfiles/mutfile*`)
 OFFSET=0
