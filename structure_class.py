@@ -317,7 +317,7 @@ echo $INDEX
         '''this function writes an sbatch script, with a call to parse_rosetta_ddgs.
         This is the easiest way to submit a job with a dependency'''
 
-        score_sbatch = open('{}/parse_ddgs.sbatch'.format(self.path_to_run_folder, 'w'))
+        score_sbatch = open('{}/parse_ddgs.sbatch'.format(self.path_to_run_folder), 'w')
         score_sbatch.write('''#!/bin/sh
 #SBATCH --job-name=collect_rosetta_ddgs
 #SBATCH --array=1
@@ -328,7 +328,7 @@ echo $INDEX
 # This sbatch script launches the parse parse_rosetta_ddgs function, from the parse_cartesian_ddgs
 # it will output a file in the prediction_files/ folder.
 python3 parse_rosetta_ddgs.py {} {} {} {}
-'''.format(self.path_to_mapping, self.sys_name, self.chain_id, self.fasta_seq))
+'''.format(self.path_to_mapping_dict, self.sys_name, self.chain_id, self.fasta_seq))
         score_sbatch.close()
 
     def align_pdb_to_uniprot(self):
@@ -376,8 +376,8 @@ python3 parse_rosetta_ddgs.py {} {} {} {}
                 self.pdb_to_uniprot[mapping['chain_id']][residue] = uniprot_number
 
         # finally we write the mapping to a file, so the ddg_parser can find it.
-        path_to_mapping_dict = '{}/pdb_to_uniprot.txt'.format(self.path_to_run_folder)
-        with open(path_to_mapping_dict, 'w') as mapping_file:
+        self.path_to_mapping_dict = '{}/pdb_to_uniprot.txt'.format(self.path_to_run_folder)
+        with open(self.path_to_mapping_dict, 'w') as mapping_file:
             json.dump(self.pdb_to_uniprot, mapping_file)
 
         def gently_clean_pdb():
