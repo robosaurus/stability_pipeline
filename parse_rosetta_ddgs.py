@@ -1,6 +1,8 @@
 import json
 import sys
-from parse_cartesian_ddgs import rosetta_cartesian_read, ddgs_from_dg
+import subprocess
+from parse_cartesian_functions import rosetta_cartesian_read, ddgs_from_dg
+
 
 # this file is a script for parseing the results of a rosetta ddg, satu7ration mut run.
 # it needs to be launched by itself, so we can submit it through slurm, and tell it to wait.
