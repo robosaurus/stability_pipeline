@@ -226,14 +226,15 @@ class structure:
         print('calling to the shell:{}'.format(shell_command))
         subprocess.call(shell_command, shell=True,  cwd=self.path_to_run_folder)
 
-    def submit_rosetta_cartesian(self):
+    def write_rosetta_cartesian_sbatch(self):
         '''this function writes an sbatch file, and submits it to slurm.
         it should only be called after clean, make_mutfiles, and rosetta_relax'''
 
         # you should change to a more reliable way of specifying the structure. Maybe a selection among the 20 in rosetta_relax
         # the memory spec is based on some brief testing. 200 M is not enough 1000 is. (based on a ~800 residue protein)
         # change nstructs to 3, when you are done testing.
-        sbatch = open('{}/rosetta_cartesian_saturation_mutagenesis.sbatch'.format(self.path_to_run_folder), 'w')
+        path_to_sbatch = '{}/rosetta_cartesian_saturation_mutagenesis.sbatch'.format(self.path_to_run_folder)
+        sbatch = open(path_to_sbatch, 'w')
         sbatch.write('''#!/bin/sh
 #SBATCH --job-name=Rosetta_cartesian_ddg
 #SBATCH --array=0-{}%256
@@ -250,6 +251,8 @@ echo $INDEX
 {}/bin/cartesian_ddg.linuxgccrelease -database {} -s {} -fa_max_dis 9.0 -ddg::dump_pdbs true -ddg:iterations 1 -ddg:mut_file ${{LST[$INDEX]}} -out:prefix ddg-$SLURM_ARRAY_JOB_ID-$SLURM_ARRAY_TASK_ID -score:weights beta_nov16_cart -ddg:mut_only -ddg:bbnbrs 1 -beta_cart -ddg:mut_only
     '''.format(len(self.fasta_seq), self.path_to_rosetta, self.path_to_rosetta[0:-7]+'/database/', '*_bn15_calibrated*.pdb'))
         sbatch.close()
+        print(path_to_sbatch)
+        return path_to_sbatch
 
     def parse_rosetta_ddgs(self, path_to_mapping, sys_name, chain_id, fasta_seq, exac_variants='', clinvar_variants=''):
         '''This function parses the result of a Rosetta ddg submission,
@@ -317,7 +320,8 @@ echo $INDEX
         '''this function writes an sbatch script, with a call to parse_rosetta_ddgs.
         This is the easiest way to submit a job with a dependency'''
 
-        score_sbatch = open('{}/parse_ddgs.sbatch'.format(self.path_to_run_folder), 'w')
+        score_sbatch_path = '{}/parse_ddgs.sbatch'.format(self.path_to_run_folder)
+        score_sbatch = open(score_sbatch_path, 'w')
         score_sbatch.write('''#!/bin/sh
 #SBATCH --job-name=collect_rosetta_ddgs
 #SBATCH --array=1
@@ -330,6 +334,8 @@ echo $INDEX
 python3 parse_rosetta_ddgs.py {} {} {} {}
 '''.format(self.path_to_mapping_dict, self.sys_name, self.chain_id, self.fasta_seq))
         score_sbatch.close()
+
+        return score_sbatch_path
 
     def align_pdb_to_uniprot(self):
         '''This method gets the alignment of the pdb residues to the uniprot sequence.
