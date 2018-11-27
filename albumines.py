@@ -2,6 +2,7 @@
 import json
 import requests
 import sys
+import os
 
 
 class albumin:
@@ -70,8 +71,8 @@ class albumin:
         # with the following keys:
         # dict_keys(['type', 'description', 'alternativeSequence', 'begin', 'end', 'xrefs', 'wildType', 'somaticStatus', 'cytogeneticBand', 'consequenceType', 'genomicLocation', 'association', 'clinicalSignificances', 'sourceType'])
 
-        for i in range(0, len(variation_dictionary['features'])-1):
-            type = variation_dictionary['features'][i]['consequenceType']
+        for i in range(0, len(variation_dictionary['features'])):
+            ctype = variation_dictionary['features'][i]['consequenceType']
             wtAA = variation_dictionary['features'][i]['wildType']
             # alt_seq is the just the alt_aa in case of sAA subs.
             alt_seq = variation_dictionary['features'][i]['alternativeSequence']
@@ -87,14 +88,27 @@ class albumin:
                     # and put them in the dicts.
                     # I would have like to have the substiturion as a key, and the ids as values.
                     # but since several variants can have the same sub, we have to do it the other way around.
-                    if element['name'] == 'ClinVar':
-                        self.clinvar_variants[element['id']] = [wtAA + pos + alt_seq, type]
+                    element['name'] == 'ClinVar':
+                        self.clinvar_variants[element['id']] = [wtAA + pos + alt_seq, ctype]
                         # TO DO: add clinical significance, maybe
                     elif element['name'] == 'ExAC':
-                        self.exac_variants[element['id']] = [wtAA + pos + alt_seq, type]
+                        self.exac_variants[element['id']] = [wtAA + pos + alt_seq, ctype]
                         # To DO: add frequuencies
                         # this will most likely be a seperate lookup with the eXac API
 
+        # finally dump the variant information in some json files
+        # so they are accesible for the score parser.
+        variant_dict = {}
+        variant_dict['exac_variants'] = self.exac_variants
+        variant_dict['clinvar_variants'] = self.clinvar_variants
+
+        self.path_to_accesion_folder = 'uniprot_accessions/{}'.format(self.uniprotAC)
+        # check if it is a folder, otherwise make it
+        if not os.path.isdir(self.path_to_accesion_folder):
+            os.mkdir(self.path_to_accesion_folder)
+        # and dump the jsons there
+        with open('{}/variants.json'.format(self.path_to_accesion_folder), 'w') as variant_file:
+            json.dump(variant_dict, variant_file)
 
     def get_swismodel(self):
         # same as pdb, but for homology models.
