@@ -89,7 +89,7 @@ class albumin:
                     # I would have like to have the substiturion as a key, and the ids as values.
                     # but since several variants can have the same sub, we have to do it the other way around.
                     if element['name'] == 'ClinVar':
-                        self.clinvar_variants[element['id']] = [wtAA + pos + alt_seq, ctype]
+                        self.clinvar_variants[element['id']] = [wtAA + pos + alt_seq, ctype, variation_dictionary['features'][i]['clinicalSignificances']]
                         # TO DO: add clinical significance, maybe
                     elif element['name'] == 'ExAC':
                         self.exac_variants[element['id']] = [wtAA + pos + alt_seq, ctype]
@@ -110,6 +110,121 @@ class albumin:
         with open('{}/variants.json'.format(self.path_to_accession_folder), 'w') as variant_file:
             json.dump(variant_dict, variant_file)
 
-    def get_swismodel(self):
-        # same as pdb, but for homology models.
-        pass
+    def get_gene_name(self):
+        '''This method gets the name of the gene for a uniprot accession and stores it under self.gene_name'''
+
+        # first we need to get a gene name from uniprot.
+        requestURL = 'https://www.ebi.ac.uk/proteins/api/proteins?offset=0&size=100&accession={}'.format(self.uniprotAC)
+        r = requests.get(requestURL, headers={"Accept": "application/json"})
+
+        if not r.ok:
+            r.raise_for_status()
+            print('entry {} not found at uniprot'.format(self.uniprotAC))
+            return
+
+        uniprot_entry_dict = json.loads(r.text)
+        try:
+            self.gene_name = uniprot_entry_dict[0]['gene'][0]['name']['value']
+        except:
+            print('gene_name_not_found')
+            return
+        return(self.gene_name)
+
+    def get_clinvar_variants(self):
+        '''this method gets the clinvar variant for a uniprot accession,
+        by looking up the gene name in the clinvar database.
+        Only variants recorded as giving a the single aa sub is recorded.'''
+
+        # we are gonna need this dictionary:
+
+        aminocodes = {
+            "ALA": "A",
+            "CYS": "C",
+            "ASP": "D",
+            "GLU": "E",
+            "PHE": "F",
+            "GLY": "G",
+            "HIS": "H",
+            "ILE": "I",
+            "LYS": "K",
+            "LEU": "L",
+            "MET": "M",
+            "ASN": "N",
+            "PRO": "P",
+            "GLN": "Q",
+            "ARG": "R",
+            "SER": "S",
+            "THR": "T",
+            "VAL": "V",
+            "TRP": "W",
+            "TYR": "Y"
+        }
+
+
+        request_url = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=clinvar&term={}[gene]&retmax=10000&retmode=json'.format(self.gene_name)
+        r = requests.get(request_url, headers={"accept": "application/json"})
+        variant_dict = json.loads(r.text)
+
+        number_of_entries = variant_dict["esearchresult"]["count"]
+        print(number_of_entries)
+        entries_list = variant_dict["esearchresult"]["idlist"]
+
+        # put all the relevant entries in this dictionary:
+        self.clinvar_sAAsubs = {}
+        for entry in entries_list:
+            request_url = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=clinvar&id={}&retmode=json'.format(entry)
+            r = requests.get(request_url)
+            variant_info = json.loads(r.text)
+
+            variant_title = variant_info['result'][entry]['title']
+            variant_type = variant_info['result'][entry]['variation_set'][0]['variant_type']
+            # note there is other information here, if you are interested. such as review status, and last time it was reviewed
+            clinical_significance = variant_info['result'][entry]['clinical_significance']['description']
+            review_status = variant_info['result'][entry]['clinical_significance']['review_status']
+            trait_set = variant_info['result'][entry]['trait_set'][0]['trait_name']
+            print(clinical_significance, trait_set, review_status)
+            # let's tease out just the SNVs
+            number_of_snvs = 0
+            if variant_type == 'single nucleotide variant':
+                number_of_snvs += 1
+                # and from these let's look at the ones recorded as giving an aa sub.
+                if '(p.' in variant_title:
+                    # determine the substitution:
+                    aa_change = variant_title.split()[-1]
+                    from_aa = aa_change[3:6]
+                    to_aa = aa_change[-4:-1]
+                    # sometimes there is no change:
+                    if '=' in to_aa:
+                        to_aa = from_aa
+                    # and in single letter code, using the dict above
+                    from_aa_single = aminocodes[from_aa.upper()]
+                    to_aa_single = aminocodes[to_aa.lower()]
+
+                    position = variant_title.split()
+
+
+                    print(from_aa, to_aa)
+                    self.clinvar_sAAsubs[entry] = {
+                        'title': variant_title,
+                        'clinical_significance': clinical_significance,
+                        'review_status': review_status,
+                        'trait_set': trait_set
+                    }
+
+
+
+    def pdb_map(self):
+        '''this method should make something like a coverage map, of the uniprot ac,
+        in terms of pdb structures, and what residues they cover'''
+
+        # first get all the pdb structures associated with the accession.
+        # and we will use the sifts API
+        requestURL = 'https://www.ebi.ac.uk/pdbe/api/mappings/all_isoforms/' + self.uniprotAC
+
+        r = requests.get(requestURL, headers={"Accept": "application/json"})
+        # we check that this is an entry at pdb
+        if not r.ok:
+            r.raise_for_status()
+            sys.exit()
+
+        all_pdbs = json.loads(r.text)
