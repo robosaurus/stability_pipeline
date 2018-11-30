@@ -59,10 +59,11 @@ class structure:
         # and this naming convention will be stored as self.sys_name
         self.sys_name = '{}_{}'.format(self.uniprotac, self.best_structure)
         path_to_pdbfile = 'experimental_structures/{}.pdb'.format(self.sys_name)
-        with open(path_to_pdbfile, 'w') as f:
-            f.write(r.text)
+        with open(path_to_pdbfile, 'w') as pdb_file:
+            pdb_file.write(r.text)
 
         self.path = path_to_pdbfile
+
 
     # We will not be interested in everything in that pdb, only certain chains
     # and we need to clean up the pdb before running Rosetta on it.
