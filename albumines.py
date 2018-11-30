@@ -4,6 +4,8 @@ import requests
 import sys
 import os
 import re
+import numpy as np
+import pandas as pd
 
 
 class albumin:
@@ -112,9 +114,15 @@ class albumin:
             entry_numbo = entry_numbo + 1
             print('processing entry {}'.format(entry_numbo))
             request_url = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=clinvar&id={}&retmode=json'.format(entry)
-            r = requests.get(request_url)
+            # sometimes the request fails, and we don't want to crash everything
             try:
-                # sometimes this fails for some reason
+                r = requests.get(request_url)
+            except:
+                print('failed to get variant{}'.format(entry))
+                continue
+
+            try:
+                # and also sometimes this fails for some reason
                 variant_info = json.loads(r.text)
             except json.decoder.JSONDecodeError:
                 print('couldn\'t get info on variant{}'.format(entry))
@@ -278,12 +286,103 @@ class albumin:
         # and we will use the sifts API
 
         requestURL = 'https://www.ebi.ac.uk/pdbe/api/mappings/all_isoforms/' + self.uniprotAC
-        r = requests.get(requestURL, headers={"Accept": "application/json"})
-        # we check that this is an entry at pdb
-        if not r.ok:
-            r.raise_for_status()
-            sys.exit()
+        try:
+            r = requests.get(requestURL, headers={"Accept": "application/json"})
+            # we check that this is an entry at pdb
+        except requests.exceptions.HTTPError:
+            print('somethings wrong with the http request')
+            print('no pdb structures for {}'.format(self.uniprotAC))
 
         all_pdbs = json.loads(r.text)
-        print(len(all_pdbs))
-        print(len(all_pdbs))
+        number_of_structures = len(all_pdbs[self.uniprotAC]['PDB'])
+
+        print('has {} mappings'.format(number_of_structures))
+        # lets make a list of dictionaries, for each mapping
+        mapping_list = []
+        # this variable is just used to keep track of what entry is being processed
+        mapping_number = 0
+        # this dictionary records
+        for mapping in all_pdbs[self.uniprotAC]['PDB']:
+            pdb_id = mapping
+            # all_pdbs[self.uniprotAC]['PDB'][mapping] is actually a list of dicts, so let's loop through the entries
+            for element in all_pdbs[self.uniprotAC]['PDB'][mapping]:
+                mapping_info = element
+                # remember where you come from
+                mapping_info['pdb_id'] = pdb_id
+                chain_id = mapping_info['chain_id']
+                # record the length of the mapping
+                uniprot_start = mapping_info['unp_start']
+                uniprot_end = mapping_info['unp_end']
+                map_length = int(uniprot_end) - int(uniprot_start)
+                pdb_map_len = mapping_info['end']['residue_number'] - mapping_info['start']['residue_number'] + 1
+                mapping_info['map_length'] = map_length
+                mapping_info['pdb_map_len'] = pdb_map_len
+                # check if this is the longest map
+                print(pdb_id, chain_id, map_length)
+                print(mapping_info['start'])
+                # and add it to the list of mappings:
+                mapping_list.append(mapping_info)
+                # increment the mapping number
+                mapping_number = mapping_number + 1
+
+        # now choosing which mappings to go by, and what structures to use is not trivial.
+        # ideally we want complete coverage of the uniprot sequence. But only once.
+        # Let's start with the longest mapping, and then, looping through the rest, add
+        # add structures if they cover residues in the uniprot sequence not previously covered
+        # we can make a dictionary with all the uniprot residues as keys,
+        # and the structures that cover the residue as values
+
+        # try to achive this as a dictionary, with each uniprot residue number as a key,
+        # and a list of pdb_numbers as values.
+        # like so:
+        # uid_dict = {
+        #             1:[0,0,4]
+        #             2:[1,0,5]
+        #             3:[2,0,6]
+        #             }
+        # it will be important to keep track of the 'coloumn_index' of the different structures
+        # and we should keep track of what uniprot residue indices have been covered.
+
+        # instead let's try Inti's pandas solution
+
+        # make a dataframe with every uniprot residue index
+
+        df = pd.Series(np.arange(1, len(self.sequence)+1)).to_frame('uniprot')
+        for structure in mapping_list:
+            # determine the structure id
+            structure_id = '{}_{}'.format(structure['pdb_id'], structure['chain_id'])
+            print(structure_id)
+            # make a new dataframe with the structure id name
+            # and populate it with nan values
+            df[structure_id] = np.nan
+            # take the partial of the original dataframe, that corresponds to the mapped residues
+            # and make a copy
+            # !!! now this is not completely halal
+            # but we map the entire length of the pdb to the sequuntial numbers in the unp numbering scheme
+            # because unp segments are often longer than pdb, segments, because of gaps in the alignment.
+            # i cannot take that into account here,
+            # and it also means that the structural coverage dataframe is not completely accurate.
+            # but for structure selection it will have to do.
+            partial = df.query('uniprot >= {} and uniprot <= {}'.format(structure['unp_start'], structure['unp_start'] + structure['pdb_map_len'] - 1)).copy()
+            # in this partial dataframe, add a colomn for our structure
+            # and assign the pdb numbers to those
+            partial[structure_id] = np.arange(structure['start']['residue_number'], structure['end']['residue_number']+1)
+            # and then update the dataframe
+            df.update(partial)
+        print(df)
+
+
+
+
+
+
+
+
+        #        identity = mapping_info['identity']
+        #        pdb_numbering_start = mapping_info['start']['residue_number']
+        #        pdb_numbering_end = mapping_info['end']['residue_number']
+        #        uniprot_start = mapping_info['unp_start']
+        #        uniprot_end = mapping_info['unp_end']
+
+        #        print(mapping, chain_id, 'pdb_numbering {} to {}'.format(pdb_numbering_start, pdb_numbering_end))
+        #        print('uniprot_numbering {} to {}'.format(uniprot_start, uniprot_end))
