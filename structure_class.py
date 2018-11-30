@@ -210,7 +210,7 @@ class structure:
         # the relax protocol is taken from the rosetta docs: https://www.rosettacommons.org/docs/latest/cartesian-ddG
         # and it is dependent on the cart2.script file in the rosetta_parameters folder
         # remember to change nstructs to 20, when you are done testing
-        shell_command = 'srun {}/bin/relax.linuxgccrelease -s {} -use_input_sc \
+        shell_command = 'srun --mem-per-cpu=5000M {}/bin/relax.linuxgccrelease -s {} -use_input_sc \
 -constrain_relax_to_start_coords \
 -ignore_unrecognized_res \
 -nstruct 1 \
@@ -325,5 +325,4 @@ python3 parse_rosetta_ddgs.py {} {} {} {} {}
         def gently_clean_pdb():
             # here is a method for cleaning the pdb, that is less drastic than clean and isolate.
             # and we need to keep track of the numbering.
-
             pass
