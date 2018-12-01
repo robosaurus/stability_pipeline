@@ -6,6 +6,7 @@ import os
 import re
 import numpy as np
 import pandas as pd
+from operator import itemgetter
 
 
 class albumin:
@@ -278,9 +279,11 @@ class albumin:
         return(self.exac_sAAsubs)
 
     def pdb_map(self):
-        '''this method should make something like a coverage map, of the uniprot ac,
-        in terms of pdb structures, and what residues they cover.
-        It should also look in the swissprot repo'''
+        '''this method looks for the experimental structure SIFTS mappings for a uniprot accessions,
+        It writes all the maps to a file, and returns a list of recomended structures.
+        (chosen by length, and for maximum coverage).
+        note that the coverage map is only an approximation, and is based on the mapping info
+        in sifts, not actual alignments. YMMV'''
 
         # first get all the pdb structures associated with the accession.
         # and we will use the sifts API
@@ -301,6 +304,8 @@ class albumin:
         mapping_list = []
         # this variable is just used to keep track of what entry is being processed
         mapping_number = 0
+        # this dictionary records the structure_id + chain_id as keys, and the length as values
+        structure_map_len_dict = {}
         # this dictionary records
         for mapping in all_pdbs[self.uniprotAC]['PDB']:
             pdb_id = mapping
@@ -310,16 +315,17 @@ class albumin:
                 # remember where you come from
                 mapping_info['pdb_id'] = pdb_id
                 chain_id = mapping_info['chain_id']
+                structure_id = '{}_{}'.format(pdb_id, chain_id)
                 # record the length of the mapping
                 uniprot_start = mapping_info['unp_start']
                 uniprot_end = mapping_info['unp_end']
                 map_length = int(uniprot_end) - int(uniprot_start)
                 pdb_map_len = mapping_info['end']['residue_number'] - mapping_info['start']['residue_number'] + 1
                 mapping_info['map_length'] = map_length
+                # record the mapping in the length in the structure_map_len_dict
+                structure_map_len_dict[structure_id] = map_length
                 mapping_info['pdb_map_len'] = pdb_map_len
                 # check if this is the longest map
-                print(pdb_id, chain_id, map_length)
-                print(mapping_info['start'])
                 # and add it to the list of mappings:
                 mapping_list.append(mapping_info)
                 # increment the mapping number
@@ -327,31 +333,14 @@ class albumin:
 
         # now choosing which mappings to go by, and what structures to use is not trivial.
         # ideally we want complete coverage of the uniprot sequence. But only once.
-        # Let's start with the longest mapping, and then, looping through the rest, add
-        # add structures if they cover residues in the uniprot sequence not previously covered
-        # we can make a dictionary with all the uniprot residues as keys,
-        # and the structures that cover the residue as values
 
-        # try to achive this as a dictionary, with each uniprot residue number as a key,
-        # and a list of pdb_numbers as values.
-        # like so:
-        # uid_dict = {
-        #             1:[0,0,4]
-        #             2:[1,0,5]
-        #             3:[2,0,6]
-        #             }
-        # it will be important to keep track of the 'coloumn_index' of the different structures
-        # and we should keep track of what uniprot residue indices have been covered.
-
-        # instead let's try Inti's pandas solution
-
+        # Let's try Inti's pandas solution
         # make a dataframe with every uniprot residue index
 
         df = pd.Series(np.arange(1, len(self.sequence)+1)).to_frame('uniprot')
         for structure in mapping_list:
             # determine the structure id
             structure_id = '{}_{}'.format(structure['pdb_id'], structure['chain_id'])
-            print(structure_id)
             # make a new dataframe with the structure id name
             # and populate it with nan values
             df[structure_id] = np.nan
@@ -369,20 +358,54 @@ class albumin:
             partial[structure_id] = np.arange(structure['start']['residue_number'], structure['end']['residue_number']+1)
             # and then update the dataframe
             df.update(partial)
-        print(df)
 
+        # now we have a dataframe with all the mappings.
+        # based on this we recommend some structures,
+        # that together gives the highest coverage
+        total_coverage_df = df
+        # and let's write the dataframe to a file, in case someone wants to have a look:
+        # check if there is a folder first
+        if not os.path.isdir('uniprot_accessions/{}'.format(self.uniprotAC)):
+            os.path.mkdir('uniprot_accessions/{}'.format(self.uniprotAC))
 
+        total_coverage_df.to_csv(path_or_buf='uniprot_accessions/{}/experimental_coverage_map.csv'.format(self.uniprotAC))
 
+        # Let's start with the longest mapping, and then, looping through the rest, add
+        # add structures if they cover residues in the uniprot sequence not previously covered
+        # keep the ordering in this list. it's a list of doubles (structure_id, length)
+        length_structure_order = []
+        for entry in sorted(structure_map_len_dict.items(), key=itemgetter(1), reverse=True):
+            length_structure_order.append(entry)
 
+        # now as Inti proposed, we loop through each residue in the total_coverage_df
+        # find the longest map that covers this residue,
+        # check if it is part of the recommended structures list, and add it if it is not.
+        recomended_structures = []
+        for index, row in total_coverage_df.iterrows():
+            # loop through the structures that have this residue present
+            list_of_structures_covering_this_res = []
+            # get the colouns that have a value:
+            # This is obviously not the pandas way,
+            # but i do not know pandas
+            for cell in range(1, len(row)):
+                # check if it has a value
+                if not np.isnan(row[cell]):
+                    # if it does, add it to the list of structures that cover this residue
+                    list_of_structures_covering_this_res.append(total_coverage_df.dtypes.index[cell])
+            # now find the longest map in this list:
+            # we will do that by looping through the list_of_longest_maps,
+            # and finding the first match:
+            while True:
+                for structure in length_structure_order:
+                    if structure[0] in list_of_structures_covering_this_res:
+                        # check if it is already in the list of recomended structures else add it
+                        if structure[0] not in recomended_structures:
+                            recomended_structures.append(structure[0])
+                        # and break the while loop
+                        break
+                # otherwise there is no coverage, and we break anyway
+                break
 
-
-
-
-        #        identity = mapping_info['identity']
-        #        pdb_numbering_start = mapping_info['start']['residue_number']
-        #        pdb_numbering_end = mapping_info['end']['residue_number']
-        #        uniprot_start = mapping_info['unp_start']
-        #        uniprot_end = mapping_info['unp_end']
-
-        #        print(mapping, chain_id, 'pdb_numbering {} to {}'.format(pdb_numbering_start, pdb_numbering_end))
-        #        print('uniprot_numbering {} to {}'.format(uniprot_start, uniprot_end))
+        # save the list of recomended structures as self.recomended_experimental_structures
+        self.recomended_experimental_structures = recomended_structures
+        return(recomended_structures)
