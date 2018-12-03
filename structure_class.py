@@ -11,15 +11,46 @@ import os
 
 class structure:
 
-    def __init__(self, UniprotAC):
+    def __init__(self, UniprotAC='no_ac', output_path='output/'):
         # the structure will belong to a uniprot AC
         # it might as well know which one
         self.uniprotac = UniprotAC
 
+        # sometimes i put a backslash and sometimes they don't
+        if output_path[-1] == '/':
+            self.out_path = output_path[:-1]
+        else:
+            self.out_path = output_path
+
+        # let's make the right directories
+        if not os.path.isdir('{}/experimental_structures'.format(self.out_path)):
+            os.mkdir('{}/experimental_structures'.format(self.out_path))
+
+        if not os.path.isdir('{}/cleaned_structures'.format(self.out_path)):
+            os.mkdir('{}/cleaned_structures'.format(self.out_path))
+
+        if not os.path.isdir('{}/homology_models'.format(self.out_path)):
+            os.mkdir('{}/homology_models'.format(self.out_path))
+
     # also this class should know the path to rosetta:
     path_to_rosetta = '/groups/sbinlab/software/Rosetta_2018_Oct_d557f8/source'
 
-    # the most important method for the structureclass, is looking through the pdb for structures
+    # the most important method for the structureclass, is getting structures from the pdbe
+    def get_pdb(self, structureID_chainID):
+        structure_id, chain_id = structureID_chainID.split('_')
+
+        structureURL = 'http://www.rcsb.org/pdb/files/{}.pdb'.format(structure_id)
+        r = requests.get(structureURL)
+        # this way the model will be saved as uniprotAC_pdbname.pdb
+        # and this naming convention will be stored as self.sys_name
+        self.sys_name = '{}_{}'.format(self.uniprotac, structure_id)
+        path_to_pdbfile = self.out_path + '/experimental_structures/{}.pdb'.format(self.sys_name)
+        with open(path_to_pdbfile, 'w') as pdb_file:
+            pdb_file.write(r.text)
+
+        self.chain_id = chain_id
+        self.path = path_to_pdbfile
+
     def get_best_pdb(self):
         '''this method looks in the pdb for the best experimental structure
         and downloads it, 'best' as defined by the pdb themselves'''
@@ -58,12 +89,11 @@ class structure:
         # this way the model will be saved as uniprotAC_pdbname.pdb
         # and this naming convention will be stored as self.sys_name
         self.sys_name = '{}_{}'.format(self.uniprotac, self.best_structure)
-        path_to_pdbfile = 'experimental_structures/{}.pdb'.format(self.sys_name)
+        path_to_pdbfile = '{}/experimental_structures/{}.pdb'.format(self.out_path, self.sys_name)
         with open(path_to_pdbfile, 'w') as pdb_file:
             pdb_file.write(r.text)
 
         self.path = path_to_pdbfile
-
 
     # We will not be interested in everything in that pdb, only certain chains
     # and we need to clean up the pdb before running Rosetta on it.
@@ -79,14 +109,18 @@ class structure:
         # but this way i do not have to modify their script :)
         # also, they use python2
 
-        shell_command = 'python2 ../clean_pdb.py ../{} {}'.format(path_to_pdb, chains)
+        # first we find the clean_pdb.py script
+        with open('rosetta_parameters/rosetta_paths.json', 'r') as path_file:
+            rosetta_paths = json.loads(path_file.readlines()[0])
+
+        shell_command = 'python2 {} {} {}'.format(rosetta_paths['clean_structure'], path_to_pdb, chains)
         print('here is some output from the clean_pdb.py script')
-        subprocess.call(shell_command, cwd='cleaned_structures/', shell=True)
+        subprocess.call(shell_command, cwd='{}/cleaned_structures/'.format(self.out_path), shell=True)
         print('end of output from clean_pdb.py')
 
         # this script also produces a fasta, that we can convinently use to set the sequence
         # of the structure
-        path_to_cleaned_fasta = 'cleaned_structures/{}_{}.fasta'.format(self.sys_name, chains)
+        path_to_cleaned_fasta = '{}/cleaned_structures/{}_{}.fasta'.format(self.out_path, self.sys_name, chains)
         fasta_file = open(path_to_cleaned_fasta, 'r')
         fasta_lines = fasta_file.readlines()
         fasta_file.close()

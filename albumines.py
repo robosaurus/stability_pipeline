@@ -11,8 +11,29 @@ from operator import itemgetter
 
 class albumin:
 
-    def __init__(self, uniprotAC):
+    def __init__(self, uniprotAC, output_path='output/'):
         self.uniprotAC = uniprotAC
+
+        # sometimes the is a / and sometimes there is not
+        if output_path[-1] == '/':
+            self.out_path = output_path[:-1]
+        else:
+            self.out_path = output_path
+
+        self.out_path = output_path
+
+        # let's make sure the right directories exist
+        if not os.path.isdir('{}/uniprot_accessions'.format(self.out_path)):
+            os.mkdir('{}/uniprot_accessions'.format(self.out_path))
+
+        if not os.path.isdir('{}/experimental_structures'.format(self.out_path)):
+            os.mkdir('{}/experimental_structures'.format(self.out_path))
+
+        if not os.path.isdir('{}/cleaned_structures'.format(self.out_path)):
+            os.mkdir('{}/cleaned_structures'.format(self.out_path))
+
+        if not os.path.isdir('{}/homology_models'.format(self.out_path)):
+            os.mkdir('{}/homology_models'.format(self.out_path))
 
     def get_sequenced(self):
         '''this method gets downloads the fasta file of the uniprot AC,
@@ -171,7 +192,7 @@ class albumin:
                         }
 
         # dump the variation dict in as a json in the uniprotac folder
-        self.path_to_accession_folder = 'uniprot_accessions/{}'.format(self.uniprotAC)
+        self.path_to_accession_folder = '{}/uniprot_accessions/{}'.format(self.uniprotAC, self.out_path)
         # check if it is a folder, otherwise make it
         if not os.path.isdir(self.path_to_accession_folder):
             os.mkdir(self.path_to_accession_folder)
@@ -264,7 +285,7 @@ class albumin:
                         'mut': mut_spec
                     }
         # Let's dump it as a json in the proper folder again
-        self.path_to_accession_folder = 'uniprot_accessions/{}'.format(self.uniprotAC)
+        self.path_to_accession_folder = '{}/uniprot_accessions/{}'.format(self.out_path, self.uniprotAC)
         # check if it is a folder, otherwise make it
         if not os.path.isdir(self.path_to_accession_folder):
             os.mkdir(self.path_to_accession_folder)
@@ -365,10 +386,10 @@ class albumin:
         total_coverage_df = df
         # and let's write the dataframe to a file, in case someone wants to have a look:
         # check if there is a folder first
-        if not os.path.isdir('uniprot_accessions/{}'.format(self.uniprotAC)):
-            os.path.mkdir('uniprot_accessions/{}'.format(self.uniprotAC))
+        if not os.path.isdir('{}/uniprot_accessions/{}'.format(self.out_path, self.uniprotAC)):
+            os.mkdir('{}/uniprot_accessions/{}'.format(self.out_path, self.uniprotAC))
 
-        total_coverage_df.to_csv(path_or_buf='uniprot_accessions/{}/experimental_coverage_map.csv'.format(self.uniprotAC))
+        total_coverage_df.to_csv(path_or_buf='{}/uniprot_accessions/{}/experimental_coverage_map.csv'.format(self.out_path, self.uniprotAC))
 
         # Let's start with the longest mapping, and then, looping through the rest, add
         # add structures if they cover residues in the uniprot sequence not previously covered
