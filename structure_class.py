@@ -4,6 +4,8 @@ import json
 import sys
 import subprocess
 import os
+# and import the file paths to rosetta and utility scripts
+import rosetta_paths
 
 # this file defines the structure class.
 # it will be used by the albumin
@@ -32,10 +34,11 @@ class structure:
         if not os.path.isdir('{}/homology_models'.format(self.out_path)):
             os.mkdir('{}/homology_models'.format(self.out_path))
 
-    # also this class should know the path to rosetta:
-    path_to_rosetta = '/groups/sbinlab/software/Rosetta_2018_Oct_d557f8/source'
+        print(rosetta_paths.path_to_rosetta)
 
-    # the most important method for the structureclass, is getting structures from the pdbe
+        path_to_rosetta = rosetta_paths.path_to_rosetta
+
+        # the most important method for the structureclass, is getting structures from the pdbe
     def get_pdb(self, structureID_chainID):
         structure_id, chain_id = structureID_chainID.split('_')
 
@@ -110,10 +113,10 @@ class structure:
         # also, they use python2
 
         # first we find the clean_pdb.py script
-        with open('rosetta_parameters/rosetta_paths.json', 'r') as path_file:
-            rosetta_paths = json.loads(path_file.readlines()[0])
+        # the path is imported from rosetta_paths.py module
+        path_to_clean_pdb = rosetta_paths.path_to_clean_pdb
 
-        shell_command = 'python2 {} {} {}'.format(rosetta_paths['clean_structure'], path_to_pdb, chains)
+        shell_command = 'python2 {} {} {}'.format(path_to_clean_pdb, path_to_pdb, chains)
         print('here is some output from the clean_pdb.py script')
         subprocess.call(shell_command, cwd='{}/cleaned_structures/'.format(self.out_path), shell=True)
         print('end of output from clean_pdb.py')
@@ -226,17 +229,48 @@ class structure:
                 mutfile.write(self.fasta_seq[residue_number-1] + ' ' + str(residue_number) + ' ' + AAtype + '\n')
             mutfile.close()
 
+    def rosetta_sbatch_relax(self, structure_path='defaults to self.path_to_cleaned'):
+        '''this function writes an sbatch script, specifying the relaxation of the sctructure.
+        it returns the path to the sbatch script.
+        The flags for the relaxation are taken from rosetta_parameters/relax_flagfile'''
+
+        if structure_path == 'defaults to self.path_to_cleaned_pdb':
+            structure_path = self.path_to_cleaned_pdb
+
+        self.path_to_run_folder = '{}/uniprot_accessions/{}/rosetta_runs/{}'.format(self.out_path, self.uniprotac, self.sys_name)
+        # check if the folder exists, otherwise make it
+        if not os.path.isdir(self.path_to_run_folder):
+            os.makedirs(self.path_to_run_folder)
+
+        path_to_sbatch = '{}/rosetta_relax.sbatch'.format(self.path_to_run_folder)
+        sbatch = open(path_to_sbatch, 'w')
+        sbatch.write('''#!/bin/sh
+#SBATCH --job-name=Rosetta_cartesian_ddg
+#SBATCH --array=1
+#SBATCH --nodes=1
+#SBATCH --time=10:00:00
+#SBATCH --mem 5000
+#SBATCH --partition=sbinlab
+
+# launching rosetta relax
+        {}/bin/relax.linuxgccrelease -database {} -s {} -relax:script {}/cart2.script @{}/relax_flagfile
+    '''.format(rosetta_paths.path_to_rosetta, rosetta_paths.path_to_rosetta[0:-7]+'/database/', structure_path, rosetta_paths.path_to_parameters, rosetta_paths.path_to_parameters))
+        sbatch.close()
+        print(path_to_sbatch)
+        return path_to_sbatch
+
     def rosetta_relax(self):
         '''this function sruns a rosetta relaxation of the structure,
         it follows the recomended protocol for a pre-relaxation prior to
         a cartesian_ddg run'''
 
         # it will run in it's own folder. that we can make a rosetta_runs/self.sys_name folder
-        self.path_to_run_folder = 'rosetta_runs/{}'.format(self.sys_name)
+        self.path_to_run_folder = '{}/{}/rosetta_runs/{}'.format(self.out_path, self.uniprotac, self.sys_name)
         # check if the folder exists, otherwise make it
         if not os.path.isdir(self.path_to_run_folder):
             os.mkdir(self.path_to_run_folder)
 
+        # we will submit the sbatch from this folder.
         # so the paths should be relative to that
         self.path_to_cleaned_pdb = '../../cleaned_structures/{}_{}.pdb'.format(self.sys_name, self.chain_id)
 
@@ -259,7 +293,7 @@ class structure:
         subprocess.call(shell_command, shell=True,  cwd=self.path_to_run_folder)
 
     def write_rosetta_cartesian_sbatch(self):
-        '''this function writes an sbatch file, and submits it to slurm.
+        '''this function writes an sbatch file.
         it should only be called after clean, make_mutfiles, and rosetta_relax'''
 
         # you should change to a more reliable way of specifying the structure. Maybe a selection among the 20 in rosetta_relax

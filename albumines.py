@@ -7,6 +7,7 @@ import re
 import numpy as np
 import pandas as pd
 from operator import itemgetter
+from rosetta_paths import path_to_rosetta, path_to_clean_pdb, path_to_clean_keep_ligand
 
 
 class albumin:
@@ -84,7 +85,7 @@ class albumin:
             self.gene_name = uniprot_entry_dict[0]['gene'][0]['name']['value']
         except:
             print('gene_name_not_found')
-            return
+            return('ERROR')
         return(self.gene_name)
 
     def get_clinvar_variants(self):
@@ -119,7 +120,6 @@ class albumin:
             "TYR": "Y",
             "TER": "stop"
         }
-
 
         request_url = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=clinvar&term={}[gene]&retmax=10000&retmode=json'.format(self.gene_name)
         r = requests.get(request_url, headers={"accept": "application/json"})
