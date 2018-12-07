@@ -6,6 +6,8 @@ import subprocess
 import os
 # and import the file paths to rosetta and utility scripts
 import rosetta_paths
+import pdb_to_fasta_seq
+
 
 # this file defines the structure class.
 # it will be used by the albumin
@@ -25,18 +27,16 @@ class structure:
             self.out_path = output_path
 
         # let's make the right directories
-        if not os.path.isdir('{}/experimental_structures'.format(self.out_path)):
-            os.mkdir('{}/experimental_structures'.format(self.out_path))
+        if not os.path.isdir('{}/{}/experimental_structures'.format(self.out_path, self.uniprotac)):
+            os.mkdir('{}/{}/experimental_structures'.format(self.out_path, self.uniprotac))
 
-        if not os.path.isdir('{}/cleaned_structures'.format(self.out_path)):
-            os.mkdir('{}/cleaned_structures'.format(self.out_path))
+        if not os.path.isdir('{}/{}/cleaned_structures'.format(self.out_path, self.uniprotac)):
+            os.mkdir('{}/{}/cleaned_structures'.format(self.out_path, self.uniprotac))
 
-        if not os.path.isdir('{}/homology_models'.format(self.out_path)):
-            os.mkdir('{}/homology_models'.format(self.out_path))
+        if not os.path.isdir('{}/{}/homology_models'.format(self.out_path, self.uniprotac)):
+            os.mkdir('{}/{}/homology_models'.format(self.out_path, self.uniprotac))
 
         print(rosetta_paths.path_to_rosetta)
-
-        path_to_rosetta = rosetta_paths.path_to_rosetta
 
         # the most important method for the structureclass, is getting structures from the pdbe
     def get_pdb(self, structureID_chainID):
@@ -121,9 +121,10 @@ class structure:
         subprocess.call(shell_command, cwd='{}/cleaned_structures/'.format(self.out_path), shell=True)
         print('end of output from clean_pdb.py')
 
+        self.path_to_cleaned_pdb = '{}/{}/cleaned_structures/{}_{}.pdb'.format(self.out_path, self.uniprotac, self.sys_name, chains)
         # this script also produces a fasta, that we can convinently use to set the sequence
         # of the structure
-        path_to_cleaned_fasta = '{}/cleaned_structures/{}_{}.fasta'.format(self.out_path, self.sys_name, chains)
+        path_to_cleaned_fasta = '{}/{}cleaned_structures/{}_{}.fasta'.format(self.out_path, self.uniprotac, self.sys_name, chains)
         fasta_file = open(path_to_cleaned_fasta, 'r')
         fasta_lines = fasta_file.readlines()
         fasta_file.close()
@@ -136,6 +137,7 @@ class structure:
         # now here should be some code for aligning the structure sequence to the uniprot sequence
         # determine the coverage (is this enough structure?)
         # and determine a numbering
+        return(self.path_to_cleaned_pdb)
 
     def get_swiss_model(self, get_model_number=0):
         '''this method gets the best available homology model,
@@ -234,8 +236,7 @@ class structure:
         it returns the path to the sbatch script.
         The flags for the relaxation are taken from rosetta_parameters/relax_flagfile'''
 
-        if structure_path == 'defaults to self.path_to_cleaned_pdb':
-            structure_path = self.path_to_cleaned_pdb
+        structure_path = self.path_to_cleaned_pdb
 
         self.path_to_run_folder = '{}/uniprot_accessions/{}/rosetta_runs/{}'.format(self.out_path, self.uniprotac, self.sys_name)
         # check if the folder exists, otherwise make it
@@ -245,16 +246,14 @@ class structure:
         path_to_sbatch = '{}/rosetta_relax.sbatch'.format(self.path_to_run_folder)
         sbatch = open(path_to_sbatch, 'w')
         sbatch.write('''#!/bin/sh
-#SBATCH --job-name=Rosetta_cartesian_ddg
-#SBATCH --array=1
-#SBATCH --nodes=1
+#SBATCH --job-name=pre_relax_rosetta
 #SBATCH --time=10:00:00
 #SBATCH --mem 5000
 #SBATCH --partition=sbinlab
 
 # launching rosetta relax
-        {}/bin/relax.linuxgccrelease -database {} -s {} -relax:script {}/cart2.script @{}/relax_flagfile
-    '''.format(rosetta_paths.path_to_rosetta, rosetta_paths.path_to_rosetta[0:-7]+'/database/', structure_path, rosetta_paths.path_to_parameters, rosetta_paths.path_to_parameters))
+        {}bin/relax.linuxgccrelease -s {} -relax:script {}/cart2.script @{}/relax_flagfile
+    '''.format(rosetta_paths.path_to_rosetta, structure_path, rosetta_paths.path_to_parameters, rosetta_paths.path_to_parameters))
         sbatch.close()
         print(path_to_sbatch)
         return path_to_sbatch
@@ -341,6 +340,20 @@ python3 parse_rosetta_ddgs.py {} {} {} {} {}
         score_sbatch.close()
 
         return score_sbatch_path
+
+    def muscle_align_to_uniprot(self):
+        '''this method uses the muscle application to make an alignment between the structure sequence
+        and the uniprot sequence'''
+
+        # first determine the sequence of the structure
+        self.fasta_seq = pdb_to_fasta_seq.pdb_to_fasta_seq(self.path_to_cleaned_pdb)
+        # first make a fasta that contains the structure sequence and the uniprot sequence
+        # first check that the folder exists
+        if not os.path.isdir('{}/{}/{}'.format(self.out_path, self.uniprotac, self.sys_name)):
+            os.mkdir('{}/{}/{}'.format(self.out_path, self.uniprotac, self.sys_name))
+        # then write the fasta file, that will be used as input for muscle
+        with open('{}/{}/{}/fasta_file.fasta'.format(self.out_path, self.uniprotac, self.sys_name), 'w') as fasta_file:
+            fasta_file.write('did this work?')
 
     def align_pdb_to_uniprot(self):
         '''This method gets the alignment of the pdb residues to the uniprot sequence.

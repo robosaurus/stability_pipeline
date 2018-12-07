@@ -7,7 +7,7 @@ import re
 import numpy as np
 import pandas as pd
 from operator import itemgetter
-from rosetta_paths import path_to_rosetta, path_to_clean_pdb, path_to_clean_keep_ligand
+from rosetta_paths import path_to_rosetta
 
 
 class albumin:
@@ -24,17 +24,17 @@ class albumin:
         self.out_path = output_path
 
         # let's make sure the right directories exist
-        if not os.path.isdir('{}/uniprot_accessions'.format(self.out_path)):
-            os.mkdir('{}/uniprot_accessions'.format(self.out_path))
+        if not os.path.isdir('{}/{}/uniprot_accessions'.format(self.out_path, self.uniprotAC)):
+            os.mkdir('{}/{}/uniprot_accessions'.format(self.out_path, self.uniprotAC))
 
-        if not os.path.isdir('{}/experimental_structures'.format(self.out_path)):
-            os.mkdir('{}/experimental_structures'.format(self.out_path))
+        if not os.path.isdir('{}/{}/experimental_structures'.format(self.out_path, self.uniprotAC)):
+            os.mkdir('{}/{}/experimental_structures'.format(self.out_path, self.uniprotAC))
 
-        if not os.path.isdir('{}/cleaned_structures'.format(self.out_path)):
-            os.mkdir('{}/cleaned_structures'.format(self.out_path))
+        if not os.path.isdir('{}/{}/cleaned_structures'.format(self.out_path, self.uniprotAC)):
+            os.mkdir('{}/{}/cleaned_structures'.format(self.out_path))
 
-        if not os.path.isdir('{}/homology_models'.format(self.out_path)):
-            os.mkdir('{}/homology_models'.format(self.out_path))
+        if not os.path.isdir('{}/{}/homology_models'.format(self.out_path, self.uniprotAC)):
+            os.mkdir('{}/{}/homology_models'.format(self.out_path, self.uniprotAC))
 
     def get_sequenced(self):
         '''this method gets downloads the fasta file of the uniprot AC,
