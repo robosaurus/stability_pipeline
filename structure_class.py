@@ -8,7 +8,6 @@ import os
 import rosetta_paths
 import pdb_to_fasta_seq
 
-
 # this file defines the structure class.
 # it will be used by the albumin
 
@@ -47,7 +46,7 @@ class structure:
         # this way the model will be saved as uniprotAC_pdbname.pdb
         # and this naming convention will be stored as self.sys_name
         self.sys_name = '{}_{}'.format(self.uniprotac, structure_id)
-        path_to_pdbfile = self.out_path + '/experimental_structures/{}.pdb'.format(self.sys_name)
+        path_to_pdbfile = '{}/{}/{}.pdb'.format(self.out_path, self.uniprotac, self.sys_name)
         with open(path_to_pdbfile, 'w') as pdb_file:
             pdb_file.write(r.text)
 
@@ -92,7 +91,7 @@ class structure:
         # this way the model will be saved as uniprotAC_pdbname.pdb
         # and this naming convention will be stored as self.sys_name
         self.sys_name = '{}_{}'.format(self.uniprotac, self.best_structure)
-        path_to_pdbfile = '{}/experimental_structures/{}.pdb'.format(self.out_path, self.sys_name)
+        path_to_pdbfile = '{}/{}/{}.pdb'.format(self.out_path, self.uniprotac, self.sys_name)
         with open(path_to_pdbfile, 'w') as pdb_file:
             pdb_file.write(r.text)
 
@@ -118,13 +117,13 @@ class structure:
 
         shell_command = 'python2 {} {} {}'.format(path_to_clean_pdb, path_to_pdb, chains)
         print('here is some output from the clean_pdb.py script')
-        subprocess.call(shell_command, cwd='{}/cleaned_structures/'.format(self.out_path), shell=True)
+        subprocess.call(shell_command, cwd='{}/{}/cleaned_structures/'.format(self.out_path, self.uniprotac), shell=True)
         print('end of output from clean_pdb.py')
 
         self.path_to_cleaned_pdb = '{}/{}/cleaned_structures/{}_{}.pdb'.format(self.out_path, self.uniprotac, self.sys_name, chains)
         # this script also produces a fasta, that we can convinently use to set the sequence
         # of the structure
-        path_to_cleaned_fasta = '{}/{}cleaned_structures/{}_{}.fasta'.format(self.out_path, self.uniprotac, self.sys_name, chains)
+        path_to_cleaned_fasta = '{}/{}/cleaned_structures/{}_{}.fasta'.format(self.out_path, self.uniprotac, self.sys_name, chains)
         fasta_file = open(path_to_cleaned_fasta, 'r')
         fasta_lines = fasta_file.readlines()
         fasta_file.close()
@@ -341,9 +340,12 @@ python3 parse_rosetta_ddgs.py {} {} {} {} {}
 
         return score_sbatch_path
 
-    def muscle_align_to_uniprot(self):
+    def muscle_align_to_uniprot(self, uniprot_sequence):
         '''this method uses the muscle application to make an alignment between the structure sequence
-        and the uniprot sequence'''
+        and the uniprot sequence.
+        it saves a list to a file, where the n'th residue in the structure has the uniprot numbering list[n].
+        The path to the file is returned from the method (out_path/uniprotac/structure_name/uniprot_index_list.txt)
+        This list is also stored as self.structure_index_numbers'''
 
         # first determine the sequence of the structure
         self.fasta_seq = pdb_to_fasta_seq.pdb_to_fasta_seq(self.path_to_cleaned_pdb)
@@ -352,8 +354,88 @@ python3 parse_rosetta_ddgs.py {} {} {} {} {}
         if not os.path.isdir('{}/{}/{}'.format(self.out_path, self.uniprotac, self.sys_name)):
             os.mkdir('{}/{}/{}'.format(self.out_path, self.uniprotac, self.sys_name))
         # then write the fasta file, that will be used as input for muscle
-        with open('{}/{}/{}/fasta_file.fasta'.format(self.out_path, self.uniprotac, self.sys_name), 'w') as fasta_file:
-            fasta_file.write('did this work?')
+        path_to_fasta = '{}/{}/{}/fasta_file.fasta'.format(self.out_path, self.uniprotac, self.sys_name)
+        path_to_alignment = '{}/{}/{}/alignment.fasta'.format(self.out_path, self.uniprotac, self.sys_name)
+        with open(path_to_fasta, 'w') as fasta_file:
+            fasta_file.write('>{}_structure_sequence\n'.format(self.sys_name))
+            fasta_file.write('{}\n'.format(self.fasta_seq))
+            fasta_file.write('>{}_uniprot_sequence\n'.format(self.uniprotac))
+            fasta_file.write('{}\n'.format(uniprot_sequence))
+
+        # and then we do the call muscle, to do the alignment
+        shell_call = '{} -in {} -out {}'.format(rosetta_paths.path_to_muscle, path_to_fasta, path_to_alignment)
+        subprocess.call(shell_call, shell=True)
+
+        # the next step is to parse the alignment, and produce a map,
+        # that translates the pdb numbering to uniprot numbering
+        # store the sequences in this dictionary:
+        alignment_sequences = {}
+
+        current_name = 'first'
+        with open(path_to_alignment, 'r') as alignment_file:
+            for line in alignment_file.readlines():
+                if line[0] == '>':
+                    # a new sequence
+                    # log the previous sequence, if it exists:
+                    if current_name != 'first':
+                        alignment_sequences[current_name] = current_seq
+
+                    # set the new name
+                    current_name = line[1:].strip()
+                    # reset the sequence
+                    current_seq = ''
+                else:
+                    current_seq = current_seq + line.strip()
+            # and log the last one!
+            alignment_sequences[current_name] = current_seq
+
+        # now determine the uniprot numbering for each place in the alignment.
+        # save it as a list, where the alignment 'spot' is the index in the list,
+        # and the element will be the uniprot numbering.
+        # if there are no gaps in the uniprot sequence conpared to the structure sequences
+        # as will often be the case.
+        # this list is simply range(1, len(uniprot_sequence) + 1)
+        alignment_index_numbers = []
+        current_index = 0
+        for key in alignment_sequences:
+            # if this is the uniprot sequence
+            if 'uniprot_sequence' in key:
+                # then establish the numbering:
+                for letter in alignment_sequences[key]:
+                    # increment the index
+                    current_index = current_index + 1
+                    # and if it is a letter, and not a gap,
+                    # also update the alignment_index number
+                    if letter != '-':
+                        alignment_index_numbers.append(current_index)
+
+        # and now we can number the structure sequence accordingly:
+        # reset the current index:
+        current_index = 0
+
+        structure_index_numbers = []
+        for key in alignment_sequences:
+            # if this is not the uniprot sequence, is is a structure_sequence
+            if 'uniprot_sequence' not in key:
+                # then this is a structure sequence
+                # then establish the numbering:
+                for letter in alignment_sequences[key]:
+                    # if it is a letter, and not a gap,
+                    # assign the structure_index_number to the corresponding uniprot number
+                    if letter != '-':
+                        structure_index_numbers.append(alignment_index_numbers[current_index])
+                    # and increment the current index
+                    current_index = current_index + 1
+
+        # now since rosetta always numbers residues from 1 and without gaps,
+        # we can simply use this list to translate to uniprot numbering.
+        self.structure_index_numbers = structure_index_numbers
+        # write the index numebers to a file, so it can be read by the parse_ddg function
+        path_to_index_string = '{}/{}/{}/uniprot_index_list.txt'.format(self.out_path, self.uniprotac, self.sys_name)
+        with open(path_to_index_string, 'w') as index_file:
+            index_file.write(str(structure_index_numbers))
+
+        return(path_to_index_string)
 
     def align_pdb_to_uniprot(self):
         '''This method gets the alignment of the pdb residues to the uniprot sequence.

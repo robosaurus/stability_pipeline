@@ -7,7 +7,6 @@ import re
 import numpy as np
 import pandas as pd
 from operator import itemgetter
-from rosetta_paths import path_to_rosetta
 
 
 class albumin:
@@ -24,14 +23,14 @@ class albumin:
         self.out_path = output_path
 
         # let's make sure the right directories exist
-        if not os.path.isdir('{}/{}/uniprot_accessions'.format(self.out_path, self.uniprotAC)):
-            os.mkdir('{}/{}/uniprot_accessions'.format(self.out_path, self.uniprotAC))
+        if not os.path.isdir('{}/{}/'.format(self.out_path, self.uniprotAC)):
+            os.mkdir('{}/{}/'.format(self.out_path, self.uniprotAC))
 
         if not os.path.isdir('{}/{}/experimental_structures'.format(self.out_path, self.uniprotAC)):
             os.mkdir('{}/{}/experimental_structures'.format(self.out_path, self.uniprotAC))
 
         if not os.path.isdir('{}/{}/cleaned_structures'.format(self.out_path, self.uniprotAC)):
-            os.mkdir('{}/{}/cleaned_structures'.format(self.out_path))
+            os.mkdir('{}/{}/cleaned_structures'.format(self.out_path, self.uniprotAC))
 
         if not os.path.isdir('{}/{}/homology_models'.format(self.out_path, self.uniprotAC)):
             os.mkdir('{}/{}/homology_models'.format(self.out_path, self.uniprotAC))
@@ -192,7 +191,7 @@ class albumin:
                         }
 
         # dump the variation dict in as a json in the uniprotac folder
-        self.path_to_accession_folder = '{}/uniprot_accessions/{}'.format(self.uniprotAC, self.out_path)
+        self.path_to_accession_folder = '{}/{}'.format(self.out_path, self.uniprotAC)
         # check if it is a folder, otherwise make it
         if not os.path.isdir(self.path_to_accession_folder):
             os.mkdir(self.path_to_accession_folder)
@@ -255,7 +254,7 @@ class albumin:
         # so we avoid requesting info for every single variant (I am looking at you Clinvar)
         for entry in variant_dict:
             if entry["category"] == "missense_variant":
-                number_of_missense += 1
+                number_of_missense = number_of_missense + 1
                 # stops and indels are included here. So to get just the single AA subs
                 if entry["major_consequence"] == "missense_variant":
                     # the protein level consequence is stored here
@@ -285,7 +284,7 @@ class albumin:
                         'mut': mut_spec
                     }
         # Let's dump it as a json in the proper folder again
-        self.path_to_accession_folder = '{}/uniprot_accessions/{}'.format(self.out_path, self.uniprotAC)
+        self.path_to_accession_folder = '{}/{}'.format(self.out_path, self.uniprotAC)
         # check if it is a folder, otherwise make it
         if not os.path.isdir(self.path_to_accession_folder):
             os.mkdir(self.path_to_accession_folder)
@@ -386,10 +385,10 @@ class albumin:
         total_coverage_df = df
         # and let's write the dataframe to a file, in case someone wants to have a look:
         # check if there is a folder first
-        if not os.path.isdir('{}/uniprot_accessions/{}'.format(self.out_path, self.uniprotAC)):
-            os.mkdir('{}/uniprot_accessions/{}'.format(self.out_path, self.uniprotAC))
+        if not os.path.isdir('{}/{}'.format(self.out_path, self.uniprotAC)):
+            os.mkdir('{}/{}'.format(self.out_path, self.uniprotAC))
 
-        total_coverage_df.to_csv(path_or_buf='{}/uniprot_accessions/{}/experimental_coverage_map.csv'.format(self.out_path, self.uniprotAC))
+        total_coverage_df.to_csv(path_or_buf='{}/{}/experimental_coverage_map.csv'.format(self.out_path, self.uniprotAC))
 
         # Let's start with the longest mapping, and then, looping through the rest, add
         # add structures if they cover residues in the uniprot sequence not previously covered
