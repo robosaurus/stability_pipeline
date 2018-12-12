@@ -3,9 +3,11 @@ from structure_class import structure
 import subprocess
 import sys
 
+# this is a version for of the pipeline invokation function
+# that only writes the sbatch scripts, but does not submit them
 
 
-def predict_stability_for_ac(uniprot_accesion, out_path):
+def predict_stability_no_submit(uniprot_accesion, out_path):
         # first make an instance of the albumin class
         albumine_instance = albumin(uniprot_accesion, output_path=out_path)
         # get the sequence and length
@@ -48,21 +50,6 @@ def predict_stability_for_ac(uniprot_accesion, out_path):
                 path_to_ddg_calc_sbatch = structure_instance.write_rosetta_cartesian_sbatch()
                 # and finally the parse ddgs sbatch
                 path_to_parse_ddgs_sbatch = structure_instance.write_parse_ddg_sbatch()
-                print(path_to_parse_ddgs_sbatch)
-                # and submit the sbatch files:
-                # first we relax:
-                relax_call = subprocess.Popen('sbatch rosetta_relax.sbatch', stdout=subprocess.PIPE, shell=True, cwd=structure_instance.path_to_run_folder)
-                # and get the slurm id information
-                relax_process_id_info = relax_call.communicate()
-                # the actual id is here:
-                relax_process_id = str(relax_process_id_info[0]).split()[3][0:-3]
-                # submit the ddg calculations, with the relaxation as a dependency
-                cart_ddg_call = subprocess.Popen('sbatch --dependency=afterany:{} rosetta_cartesian_saturation_mutagenesis.sbatch'.format(relax_process_id), stdout=subprocess.PIPE, shell=True, cwd=structure_instance.path_to_run_folder)
-                # again we get the slurm id
-                cart_ddg_process_id_info = cart_ddg_call.communicate()
-                cart_ddg_process_id = str(cart_ddg_process_id_info[0]).split()[3][0:-3]
-                # aaaand submit the final piece, the parsin of the results:
-                parse_results_call = subprocess.Popen('sbatch --dependency=afterany:{} parse_ddgs.sbatch'.format(cart_ddg_process_id), stdout=subprocess.PIPE, shell=True, cwd=structure_instance.path_to_run_folder)
 
                 # If there are no experimental structures, instead try get a homology model
                 list_of_homology_models = []
@@ -100,24 +87,9 @@ def predict_stability_for_ac(uniprot_accesion, out_path):
                                 path_to_ddg_calc_sbatch = model.write_rosetta_cartesian_sbatch()
                                 # and finally the parse ddgs sbatch
                                 path_to_parse_ddgs_sbatch = model.write_parse_ddg_sbatch()
-                                print(path_to_parse_ddgs_sbatch)
-                                # and submit the sbatch files:
-                                # first we relax:
-                                relax_call = subprocess.Popen('sbatch rosetta_relax.sbatch', stdout=subprocess.PIPE, shell=True, cwd=model.path_to_run_folder)
-                                # and get the slurm id information
-                                relax_process_id_info = relax_call.communicate()
-                                # the actual id is here:
-                                relax_process_id = str(relax_process_id_info[0]).split()[3][0:-3]
-                                # submit the ddg calculations, with the relaxation as a dependency
-                                cart_ddg_call = subprocess.Popen('sbatch --dependency=afterany:{} rosetta_cartesian_saturation_mutagenesis.sbatch'.format(relax_process_id), stdout=subprocess.PIPE, shell=True, cwd=model.path_to_run_folder)
-                                # again we get the slurm id
-                                cart_ddg_process_id_info = cart_ddg_call.communicate()
-                                cart_ddg_process_id = str(cart_ddg_process_id_info[0]).split()[3][0:-3]
-                                # aaaand submit the final piece, the parsing of the results:
-                                parse_results_call = subprocess.Popen('sbatch --dependency=afterany:{} parse_ddgs.sbatch'.format(cart_ddg_process_id), stdout=subprocess.PIPE, shell=True, cwd=model.path_to_run_folder)
 
 
 if __name__ == '__main__':
         uniprot_accesion = sys.argv[1]
         out_path = sys.argv[2]
-        predict_stability_for_ac(uniprot_accesion, out_path)
+        predict_stability_no_submit(uniprot_accesion, out_path)
