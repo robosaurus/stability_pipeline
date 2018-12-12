@@ -13,7 +13,7 @@ def parse_rosetta_ddgs(sys_name, chain_id, fasta_seq, uniprotAC, out_path, path_
         It returns a dictionary with the variants as keys, and the ddgs as values.
         It only works if the sbatch job has finished.'''
     # you need to make parse rosetta ddgs into a standalone script.
-    path_to_run_folder = '{}/{}/rosetta_runs/{}'.format(out_path, uniprotAC, sys_name)
+    path_to_run_folder = '{}/{}/rosetta_runs/{}_{}'.format(out_path, uniprotAC, sys_name, chain_id)
 
     # first lets cat all the *.ddg files, into a single text
     rosetta_summary_file = '{}_{}.rosetta_cartesian.dgs'.format(sys_name, chain_id)
@@ -44,7 +44,7 @@ def parse_rosetta_ddgs(sys_name, chain_id, fasta_seq, uniprotAC, out_path, path_
     # there has got to be a more elegant way to do this...
     # ACDEFGHIKLMNPQRSTVWY
     # first open a file to write to
-    scorefile = open('prediction_files/{}_{}_ddg.txt'.format(sys_name, chain_id), 'w')
+    scorefile = open('{}/{}/prediction_files/{}_{}_ddg.txt'.format(out_path, uniprotAC, sys_name, chain_id), 'w')
     # write the header
     scorefile.write('#Rosetta cartesian_ddg stability predictions for {}\n'.format(sys_name))
     scorefile.write('#sequence is {}\n'.format(fasta_seq))
