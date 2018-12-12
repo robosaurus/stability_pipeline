@@ -1,6 +1,5 @@
 from albumines import albumin
 from structure_class import structure
-import subprocess
 import sys
 
 # this is a version for of the pipeline invokation function
@@ -8,6 +7,16 @@ import sys
 
 
 def predict_stability_no_submit(uniprot_accesion, out_path):
+        '''This function runs a uniprot accesion number through the stability pipeline.
+        It will ask for variants associated with the accession in clinvar and exac,
+        It will make an experimental coverage map, and select suitable experimental structures.
+        for each structure it will:
+        write sbatch script for rosetta relaxation of the structure,
+        write sbatch script detailing each possible single aa substitution in the structure,
+        write an sbatch script that collects and parses the ddg values.
+        The sbatch files will NOT be submitted to slurm. If you want to also submit the jobs,
+        you can use the sister function in predict_stability.py'''
+
         # first make an instance of the albumin class
         albumine_instance = albumin(uniprot_accesion, output_path=out_path)
         # get the sequence and length

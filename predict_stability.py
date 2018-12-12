@@ -2,10 +2,26 @@ from albumines import albumin
 from structure_class import structure
 import subprocess
 import sys
-
+# this script defines a function that invokes the stability pipeline. It can be run from the shell, with
+# python3 predict_stability.py [uniprotac] [output_path]
 
 
 def predict_stability_for_ac(uniprot_accesion, out_path):
+        '''This function runs a uniprot accesion number through the stability pipeline.
+        It will ask for variants associated with the accession in clinvar and exac,
+        It will make an experimental coverage map, and select suitable experimental structures.
+        (if there are no available experimental structures,
+        instead a single homology model will be fetched from the swissmodel repo)
+        for each structure the function will:
+        write sbatch script for rosetta relaxation of the structure,
+        write sbatch script detailing each possible single aa substitution in the structure,
+        write an sbatch script that collects and parses the ddg values.
+        The sbatch files will be submitted to slurm, dependent on each other.
+        Parsing waits for stability calculations which waits for pre-relaxation.
+        The path to rosetta and utility applications is set in the file rosetta_paths.py.
+        the command line flags for rosetta can be changed by altering the flagfiles
+        present in the rosetta_parameters/ folder'''
+
         # first make an instance of the albumin class
         albumine_instance = albumin(uniprot_accesion, output_path=out_path)
         # get the sequence and length
