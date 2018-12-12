@@ -51,6 +51,14 @@ def parse_rosetta_ddgs(sys_name, chain_id, fasta_seq, uniprotAC, out_path, path_
     # print some stuff for debugging
     for key in rosetta_cartesian_ddgs_dict:
         print(key, rosetta_cartesian_ddgs_dict[key])
+
+    # ok, let's make a uniprot numbering version of the rosetta ddgs dictionary
+    uniprot_numbering_ddgs_dict = {}
+    for key in rosetta_cartesian_ddgs_dict:
+        position = int(key[1:-1])
+        uniprot_position = uniprot_index_list[position-1]
+        uniprot_numbering_ddgs_dict[key[0]+str(uniprot_position)+key[-1]] = rosetta_cartesian_ddgs_dict[key]
+
     scorefile.write('#Rosetta cartesian_ddg stability predictions for {}\n'.format(sys_name))
     scorefile.write('#sequence is {}\n'.format(fasta_seq))
     scorefile.write('UAC_pos\t A \t C \t D \t E \t F \t G \t H \t I \t K \t L \t M \t N \t P \t Q \t R \t S \t T \t V \t W \t Y \n')
@@ -73,8 +81,15 @@ def parse_rosetta_ddgs(sys_name, chain_id, fasta_seq, uniprotAC, out_path, path_
         scorefile.write(key)
         scorefile.write(': ')
         for element in variant_dict[key]:
-            scorefile.write(element)
+            print(element)
+            print(variant_dict[key][element])
+            scorefile.write(str(element)+':')
             scorefile.write(' ')
+            scorefile.write(str(variant_dict[key][element]))
+            scorefile.write(' ')
+        if variant_dict[key]['mut'] in uniprot_numbering_ddgs_dict:
+            mutation = variant_dict[key]['mut']
+            scorefile.write('predicted_ddg: {}'.format(uniprot_numbering_ddgs_dict[mutation]))
         scorefile.write('\n')
 
     # and the clinvar variants
@@ -86,8 +101,15 @@ def parse_rosetta_ddgs(sys_name, chain_id, fasta_seq, uniprotAC, out_path, path_
         scorefile.write(key)
         scorefile.write(': ')
         for element in variant_dict[key]:
-            scorefile.write(element)
+            print(element)
+            print(variant_dict[key][element])
+            scorefile.write(str(element)+':')
             scorefile.write(' ')
+            scorefile.write(str(variant_dict[key][element]))
+            scorefile.write(' ')
+        if variant_dict[key]['mutation'] in uniprot_numbering_ddgs_dict:
+            mutation = variant_dict[key]['mutation']
+            scorefile.write('predicted_ddg: {}'.format(uniprot_numbering_ddgs_dict[mutation]))
         scorefile.write('\n')
 
     scorefile.close()
