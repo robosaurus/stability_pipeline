@@ -3,11 +3,10 @@ from structure_class import structure
 import subprocess
 import sys
 
-uniprot_accesion = sys.argv[1]
-out_path = sys.argv[2]
 
-# first make an instance of the albumin class
+
 def predict_stability_for_ac(uniprot_accesion, out_path):
+        # first make an instance of the albumin class
         albumine_instance = albumin(uniprot_accesion, output_path=out_path)
         # get the sequence and length
         albumine_instance.get_sequenced()
@@ -22,7 +21,7 @@ def predict_stability_for_ac(uniprot_accesion, out_path):
         print(albumine_instance.uniprotAC, albumine_instance.gene_name)
         structure_list = albumine_instance.pdb_map()
         print('experimental structures', structure_list)
-        
+
         # and the loop through the structures in the structure list, and prepare for calculations
         for element in structure_list:
                 # make an instance of the structure class
@@ -64,7 +63,7 @@ def predict_stability_for_ac(uniprot_accesion, out_path):
                 cart_ddg_process_id = str(cart_ddg_process_id_info[0]).split()[3][0:-3]
                 # aaaand submit the final piece, the parsin of the results:
                 parse_results_call = subprocess.Popen('sbatch --dependency=afterany:{} parse_ddgs.sbatch'.format(cart_ddg_process_id), stdout=subprocess.PIPE, shell=True, cwd=structure_instance.path_to_run_folder)
- 
+
                 # If there are no experimental structures, instead try get a homology model
                 list_of_homology_models = []
                 if structure_list == []:
@@ -74,10 +73,10 @@ def predict_stability_for_ac(uniprot_accesion, out_path):
                                 list_of_homology_models.append(homology_model)
                         except:
                                 print('no models available')
- 
+
                                 # if this worked, prepare it for a rosetta run.
                                 # this means doing all the stuff, we just did for the experimental structures
- 
+
                         for model in list_of_homology_models:
                                 # clean up and isolate
                                 # this will isolate a single chain the the pdb
@@ -119,4 +118,6 @@ def predict_stability_for_ac(uniprot_accesion, out_path):
 
 
 if __name__ == '__main__':
+        uniprot_accesion = sys.argv[1]
+        out_path = sys.argv[2]
         predict_stability_for_ac(sys.argv[1], sys.argv[2])
