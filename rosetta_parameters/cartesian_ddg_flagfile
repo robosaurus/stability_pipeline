@@ -1,0 +1,10 @@
+-fa_max_dis 9.0 
+-ddg::dump_pdbs false 
+-ddg:iterations 3 
+-ex1
+-ex2
+-score:weights beta_nov16_cart 
+-ddg:mut_only 
+-ddg:bbnbrs 1 
+-beta_cart 
+-ddg:mut_only
