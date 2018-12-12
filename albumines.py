@@ -7,11 +7,13 @@ import re
 import numpy as np
 import pandas as pd
 from operator import itemgetter
+from itertools import count, groupby
+import rosetta_paths
 
 
 class albumin:
 
-    def __init__(self, uniprotAC, output_path='output/'):
+    def __init__(self, uniprotAC, output_path=rosetta_paths.default_output_path):
         self.uniprotAC = uniprotAC
 
         # sometimes the is a / and sometimes there is not
@@ -133,7 +135,7 @@ class albumin:
         self.clinvar_sAAsubs = {}
         for entry in entries_list:
             entry_numbo = entry_numbo + 1
-            print('processing entry {}'.format(entry_numbo))
+            print('processing entry clinvar entry {}'.format(entry_numbo))
             request_url = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=clinvar&id={}&retmode=json'.format(entry)
             # sometimes the request fails, and we don't want to crash everything
             try:
@@ -195,15 +197,16 @@ class albumin:
         # check if it is a folder, otherwise make it
         if not os.path.isdir(self.path_to_accession_folder):
             os.mkdir(self.path_to_accession_folder)
-        # and dump the jsons there
-        with open('{}/clinvar_sAA_variants.json'.format(self.path_to_accession_folder), 'w') as variant_file:
+        # and dump the json there
+        self.path_to_clinvar_variants = '{}/clinvar_sAA_variants.json'.format(self.path_to_accession_folder)
+        with open(self.path_to_clinvar_variants, 'w') as variant_file:
             json.dump(self.clinvar_sAAsubs, variant_file)
 
         # and let's also make a file with some overall stats
         with open('{}/clinvar_stats.txt'.format(self.path_to_accession_folder), 'w') as stat_file:
             stat_file.write('clinvar has {} entries for {}, of these {} are snvs, and of these {} give a single aa sub \n (max entries parsed is 10.000)'.format(number_of_entries, self.gene_name,  number_of_snvs, len(self.clinvar_sAAsubs)))
 
-        return(self.clinvar_sAAsubs)
+        return(self.path_to_clinvar_variants)
 
     def get_exac_variants(self):
         '''This method gets the exac variants for a uniprot AC.
@@ -289,14 +292,15 @@ class albumin:
         if not os.path.isdir(self.path_to_accession_folder):
             os.mkdir(self.path_to_accession_folder)
         # and dump the jsons there
-        with open('{}/exac_sAA_variants.json'.format(self.path_to_accession_folder), 'w') as variant_file:
+        self.path_to_exac_variants = '{}/exac_sAA_variants.json'.format(self.path_to_accession_folder)
+        with open(self.path_to_exac_variants, 'w') as variant_file:
             json.dump(self.exac_sAAsubs, variant_file)
 
         # and let's also make a file with some overall stats
         with open('{}/exac_stats.txt'.format(self.path_to_accession_folder), 'w') as stat_file:
             stat_file.write('exac has {} entries for {}, of these {} are missense variants, and {} give a single aa sub\n'.format(number_of_variants, self.gene_name, str(number_of_missense), len(self.exac_sAAsubs)))
 
-        return(self.exac_sAAsubs)
+        return(self.path_to_exac_variants)
 
     def pdb_map(self):
         '''this method looks for the experimental structure SIFTS mappings for a uniprot accessions,
@@ -428,4 +432,116 @@ class albumin:
 
         # save the list of recomended structures as self.recomended_experimental_structures
         self.recomended_experimental_structures = recomended_structures
+        self.total_coverage_df = total_coverage_df
         return(recomended_structures)
+
+    def swiss_model_map(self):
+        '''This method looks for homology models in the swissmodel repository,
+        It is designed to be invoked after the pdb_map method, and looks for homology models,
+        That cover areas with no experimental structure.'''
+
+        # first go through the experimental coverage map and determine what residues are without experimental structure coverage
+        without_structure = []
+
+        for index, row in self.total_coverage_df.iterrows():
+            # loop through the structures that have this residue present
+            # get the colouns that have a value:
+            # This is obviously not the pandas way,
+            # but i do not know pandas
+            # this variable watches for structure
+            no_structure = True
+            for cell in range(1, len(row)):
+                # check if it has a value
+                if not np.isnan(row[cell]):
+                    # then this residue is covered
+                    no_structure = False
+            # if no structure has been found, we add the residue to
+            # the list of residues without structure
+            if no_structure is True:
+                without_structure.append(index+1)
+
+        # now convert this list into a a series of ranges, with some itertools black magic
+        G = (list(x) for _, x in groupby(without_structure, lambda x, c=count(): next(c)-x))
+        ranges_without_coverage_string = (",".join("-".join(map(str, (g[0], g[-1])[:len(g)])) for g in G))
+        # now there might no be anythn here. so only make this list if there is
+        if len(ranges_without_coverage_string.split(',')) > 0:
+            list_of_ranges_without_coverage = ranges_without_coverage_string.split(',')
+        else:
+            list_of_ranges_without_coverage = 0
+
+        print('list_of_ranges_without_coverage')
+        print(list_of_ranges_without_coverage)
+
+        # let's keep the accepted models in this list
+        list_of_homology_models = []
+
+        # now loop through the ranges, and ask for structures from swissmodel
+        # demanding a model for every range seems a little excessive.
+        # some residues are just missing from the protein altogether, and the uniprot sequence is just inaccurate
+        # let's go with ranges longer than 10 residues
+        for stretch in list_of_ranges_without_coverage:
+            if '-' in stretch:
+                # then this is a proper stretch
+                print(stretch)
+                start, end = stretch.split('-')
+                # no tiny stretches
+                if int(end)-int(start) > 10:
+                    # ask for a swissmodel covering this range
+                    # and sort it by sequence id
+                    requestURL = 'https://swissmodel.expasy.org/repository/uniprot/' + self.uniprotAC + '.json?range='+stretch+'?sort=seqid&provider=swissmodel'
+                    r = requests.get(requestURL, headers={"Accept": "application/json"})
+                    # we check that this is an entry at swismodel. Otherwise this will raise a 404 error.
+                    print(requestURL)
+                    if not r.ok:
+                        r.raise_for_status()
+                        continue
+
+                    model_info = json.loads(r.text)
+                    pdb_file_url = model_info['result']['structures'][-1]['coordinates']
+                    # if we don't already have this in the list, append it
+                    if pdb_file_url not in list_of_homology_models:
+                        list_of_homology_models.append(pdb_file_url)
+
+        print('here is the list of model urls')
+        print(list_of_homology_models)
+
+
+
+
+
+
+
+        # for this we will use the swissmodel REST API.
+        # for more information on that see: https://swissmodel.expasy.org/docs/repository_help#smr_api
+
+       # requestURL = 'https://swissmodel.expasy.org/repository/uniprot/' + self.uniprotAC + '.json?provider=swissmodel'
+       # r = requests.get(requestURL, headers={"Accept": "application/json"})
+       # # we check that this is an entry at swismodel. Otherwise this will raise a 404 error.
+       # if not r.ok:
+       #     r.raise_for_status()
+       #     sys.exit()
+
+       # # read the text as a json object
+       # # this will return a dictionary with 2 keys: 'query' and 'result'
+       # structure_info = json.loads(r.text)
+       # # the value of result is again a dictionary with:
+       # # dict_keys(['sequence_length', 'uniprot_entries', 'structures', 'sequence', 'md5']
+       # # the value for structures is a list of structures. Each being a dictionary with
+       # # dict_keys(['similarity', 'gmqe', 'oligo-state', 'crc64', 'coverage', 'alignment', 'md5', 'from',/
+       # # ' qmean_norm', 'coordinates', 'to', 'identity', 'template', 'provider', 'qmean', 'method'])
+       # for structure in structure_info['result']['structures']:
+       #     print(structure)
+
+    def best_swiss_model(self):
+
+        requestURL = 'https://swissmodel.expasy.org/repository/uniprot/' + self.uniprotAC + '.pdb?provider=swissmodel&sort=seqsim'
+        r = requests.get(requestURL, headers={"Accept": "application/json"})
+        # we check that this is an entry at swismodel. Otherwise this will raise a 404 error.
+        if not r.ok:
+            r.raise_for_status()
+            sys.exit()
+
+        # read the text as a json object
+        # this will return a dictionary with 2 keys: 'query' and 'result'
+#        structure_info = json.loads(r.text)
+        print(r.text)
