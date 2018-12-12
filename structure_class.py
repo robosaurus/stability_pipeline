@@ -14,7 +14,7 @@ import pdb_to_fasta_seq
 
 class structure:
 
-    def __init__(self, UniprotAC='no_ac', output_path='output/'):
+    def __init__(self, UniprotAC='no_ac', output_path=rosetta_paths.default_output_path):
         # the structure will belong to a uniprot AC
         # it might as well know which one
         self.uniprotac = UniprotAC
@@ -35,6 +35,9 @@ class structure:
         if not os.path.isdir('{}/{}/homology_models'.format(self.out_path, self.uniprotac)):
             os.mkdir('{}/{}/homology_models'.format(self.out_path, self.uniprotac))
 
+        if not os.path.isdir('{}/{}/rosetta_runs'.format(self.out_path, self.uniprotac)):
+            os.mkdir('{}/{}/rosetta_runs'.format(self.out_path, self.uniprotac))
+
         print(rosetta_paths.path_to_rosetta)
 
         # the most important method for the structureclass, is getting structures from the pdbe
@@ -46,7 +49,7 @@ class structure:
         # this way the model will be saved as uniprotAC_pdbname.pdb
         # and this naming convention will be stored as self.sys_name
         self.sys_name = '{}_{}'.format(self.uniprotac, structure_id)
-        path_to_pdbfile = '{}/{}/{}.pdb'.format(self.out_path, self.uniprotac, self.sys_name)
+        path_to_pdbfile = '{}/{}/experimental_structures/{}.pdb'.format(self.out_path, self.uniprotac, self.sys_name)
         with open(path_to_pdbfile, 'w') as pdb_file:
             pdb_file.write(r.text)
 
@@ -91,7 +94,7 @@ class structure:
         # this way the model will be saved as uniprotAC_pdbname.pdb
         # and this naming convention will be stored as self.sys_name
         self.sys_name = '{}_{}'.format(self.uniprotac, self.best_structure)
-        path_to_pdbfile = '{}/{}/{}.pdb'.format(self.out_path, self.uniprotac, self.sys_name)
+        path_to_pdbfile = '{}/{}/{}_{}.pdb'.format(self.out_path, self.uniprotac, self.sys_name, self.chain_id)
         with open(path_to_pdbfile, 'w') as pdb_file:
             pdb_file.write(r.text)
 
@@ -186,7 +189,7 @@ class structure:
         self.sys_name = '{}_{}_sm{}'.format(self.uniprotac, self.template, self.seq_id)
         print(self.sys_name)
 
-        path_to_pdbfile = 'homology_models/{}.pdb'.format(self.sys_name)
+        path_to_pdbfile = '{}/{}/homology_models/{}.pdb'.format(self.out_path, self.uniprotac, self.sys_name)
 
         model_url = model_info['coordinates']
         r = requests.get(model_url)
@@ -204,7 +207,7 @@ class structure:
 
         # it will run in it's own folder. that we can make a rosetta_runs/self.sys_name folder
         # this is where we will put the files
-        self.path_to_run_folder = 'rosetta_runs/{}'.format(self.sys_name)
+        self.path_to_run_folder = '{}/{}/rosetta_runs/{}_{}'.format(self.out_path, self.uniprotac, self.sys_name, self.chain_id)
         # check if the folder exists, otherwise make it
         if not os.path.isdir(self.path_to_run_folder):
             os.mkdir(self.path_to_run_folder)
@@ -237,7 +240,7 @@ class structure:
 
         structure_path = self.path_to_cleaned_pdb
 
-        self.path_to_run_folder = '{}/uniprot_accessions/{}/rosetta_runs/{}'.format(self.out_path, self.uniprotac, self.sys_name)
+        self.path_to_run_folder = '{}/{}/rosetta_runs/{}_{}'.format(self.out_path, self.uniprotac, self.sys_name, self.chain_id)
         # check if the folder exists, otherwise make it
         if not os.path.isdir(self.path_to_run_folder):
             os.makedirs(self.path_to_run_folder)
@@ -251,44 +254,10 @@ class structure:
 #SBATCH --partition=sbinlab
 
 # launching rosetta relax
-        {}bin/relax.linuxgccrelease -s {} -relax:script {}/cart2.script @{}/relax_flagfile
-    '''.format(rosetta_paths.path_to_rosetta, structure_path, rosetta_paths.path_to_parameters, rosetta_paths.path_to_parameters))
+{}bin/relax.linuxgccrelease -s {} -relax:script {}/cart2.script @{}/relax_flagfile'''.format(rosetta_paths.path_to_rosetta, structure_path, rosetta_paths.path_to_parameters, rosetta_paths.path_to_parameters))
         sbatch.close()
         print(path_to_sbatch)
-        return path_to_sbatch
-
-    def rosetta_relax(self):
-        '''this function sruns a rosetta relaxation of the structure,
-        it follows the recomended protocol for a pre-relaxation prior to
-        a cartesian_ddg run'''
-
-        # it will run in it's own folder. that we can make a rosetta_runs/self.sys_name folder
-        self.path_to_run_folder = '{}/{}/rosetta_runs/{}'.format(self.out_path, self.uniprotac, self.sys_name)
-        # check if the folder exists, otherwise make it
-        if not os.path.isdir(self.path_to_run_folder):
-            os.mkdir(self.path_to_run_folder)
-
-        # we will submit the sbatch from this folder.
-        # so the paths should be relative to that
-        self.path_to_cleaned_pdb = '../../cleaned_structures/{}_{}.pdb'.format(self.sys_name, self.chain_id)
-
-        # and then we run the relax app
-        # from the appropriate rosetta run folder
-        # the relax protocol is taken from the rosetta docs: https://www.rosettacommons.org/docs/latest/cartesian-ddG
-        # and it is dependent on the cart2.script file in the rosetta_parameters folder
-        # remember to change nstructs to 20, when you are done testing
-        shell_command = 'srun --mem-per-cpu=5000M {}/bin/relax.linuxgccrelease -s {} -use_input_sc \
--constrain_relax_to_start_coords \
--ignore_unrecognized_res \
--nstruct 1 \
--relax:coord_constrain_sidechains  \
--relax:cartesian \
--score:weights ref2015_cart \
--relax:min_type lbfgs_armijo_nonmonotone \
--out:suffix _bn15_calibrated \
--relax:script ../../rosetta_parameters/cart2.script'.format(self.path_to_rosetta, self.path_to_cleaned_pdb)
-        print('calling to the shell:{}'.format(shell_command))
-        subprocess.call(shell_command, shell=True,  cwd=self.path_to_run_folder)
+        return(path_to_sbatch)
 
     def write_rosetta_cartesian_sbatch(self):
         '''this function writes an sbatch file.
@@ -313,8 +282,7 @@ INDEX=$((OFFSET+SLURM_ARRAY_TASK_ID))
 echo $INDEX
 
 # launching rosetta
-{}/bin/cartesian_ddg.linuxgccrelease -database {} -s {} -fa_max_dis 9.0 -ddg::dump_pdbs true -ddg:iterations 1 -ddg:mut_file ${{LST[$INDEX]}} -out:prefix ddg-$SLURM_ARRAY_JOB_ID-$SLURM_ARRAY_TASK_ID -score:weights beta_nov16_cart -ddg:mut_only -ddg:bbnbrs 1 -beta_cart -ddg:mut_only
-    '''.format(len(self.fasta_seq), self.path_to_rosetta, self.path_to_rosetta[0:-7]+'/database/', '*_bn15_calibrated*.pdb'))
+{}/bin/cartesian_ddg.linuxgccrelease -s {} -ddg:mut_file ${{LST[$INDEX]}} -out:prefix ddg-$SLURM_ARRAY_JOB_ID-$SLURM_ARRAY_TASK_ID @{}/cartesian_ddg_flagfile'''.format(len(self.fasta_seq), rosetta_paths.path_to_rosetta, '*_bn15_calibrated*.pdb', rosetta_paths.path_to_parameters))
         sbatch.close()
         print(path_to_sbatch)
         return path_to_sbatch
@@ -334,11 +302,9 @@ echo $INDEX
 
 # This sbatch script launches the parse parse_rosetta_ddgs function, from the parse_cartesian_ddgs
 # it will output a file in the prediction_files/ folder.
-python3 parse_rosetta_ddgs.py {} {} {} {} {}
-'''.format(self.path_to_mapping_dict, self.sys_name, self.chain_id, self.fasta_seq, self.uniprotac))
+python3 parse_rosetta_ddgs.py {}/{}/clinvar_sAA_variants.json {}/{}/exac_sAA_variants.json {} {} {} {}'''.format(self.out_path, self.uniprotac, self.out_path, self.uniprotac, self.sys_name, self.chain_id, self.fasta_seq, self.uniprotac))
         score_sbatch.close()
-
-        return score_sbatch_path
+        return(score_sbatch_path)
 
     def muscle_align_to_uniprot(self, uniprot_sequence):
         '''this method uses the muscle application to make an alignment between the structure sequence
@@ -490,3 +456,10 @@ python3 parse_rosetta_ddgs.py {} {} {} {} {}
             # here is a method for cleaning the pdb, that is less drastic than clean and isolate.
             # and we need to keep track of the numbering.
             pass
+
+
+class homology_model(structure):
+    '''this class is meant to hold homology models. It inherits everything from the structure class,
+    but has some changes in the structural mapping, and of course in the fetching of models.
+    This class will get homology models from the swiss model repository.'''
+
