@@ -276,6 +276,7 @@ class structure:
 #SBATCH --time=10:00:00
 #SBATCH --mem 5000
 #SBATCH --partition=sbinlab
+#SBATCH --nice
 LST=(`ls mutfiles/mutfile*`)
 OFFSET=0
 INDEX=$((OFFSET+SLURM_ARRAY_TASK_ID))
@@ -456,10 +457,4 @@ python3 parse_rosetta_ddgs.py {}/{}/clinvar_sAA_variants.json {}/{}/exac_sAA_var
             # here is a method for cleaning the pdb, that is less drastic than clean and isolate.
             # and we need to keep track of the numbering.
             pass
-
-
-class homology_model(structure):
-    '''this class is meant to hold homology models. It inherits everything from the structure class,
-    but has some changes in the structural mapping, and of course in the fetching of models.
-    This class will get homology models from the swiss model repository.'''
 
