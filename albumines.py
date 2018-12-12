@@ -505,33 +505,6 @@ class albumin:
         print('here is the list of model urls')
         print(list_of_homology_models)
 
-
-
-
-
-
-
-        # for this we will use the swissmodel REST API.
-        # for more information on that see: https://swissmodel.expasy.org/docs/repository_help#smr_api
-
-       # requestURL = 'https://swissmodel.expasy.org/repository/uniprot/' + self.uniprotAC + '.json?provider=swissmodel'
-       # r = requests.get(requestURL, headers={"Accept": "application/json"})
-       # # we check that this is an entry at swismodel. Otherwise this will raise a 404 error.
-       # if not r.ok:
-       #     r.raise_for_status()
-       #     sys.exit()
-
-       # # read the text as a json object
-       # # this will return a dictionary with 2 keys: 'query' and 'result'
-       # structure_info = json.loads(r.text)
-       # # the value of result is again a dictionary with:
-       # # dict_keys(['sequence_length', 'uniprot_entries', 'structures', 'sequence', 'md5']
-       # # the value for structures is a list of structures. Each being a dictionary with
-       # # dict_keys(['similarity', 'gmqe', 'oligo-state', 'crc64', 'coverage', 'alignment', 'md5', 'from',/
-       # # ' qmean_norm', 'coordinates', 'to', 'identity', 'template', 'provider', 'qmean', 'method'])
-       # for structure in structure_info['result']['structures']:
-       #     print(structure)
-
     def best_swiss_model(self):
 
         requestURL = 'https://swissmodel.expasy.org/repository/uniprot/' + self.uniprotAC + '.pdb?provider=swissmodel&sort=seqsim'
