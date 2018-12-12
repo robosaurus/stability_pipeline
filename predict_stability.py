@@ -51,6 +51,7 @@ def predict_stability_for_ac(uniprot_accesion, out_path):
                 print(path_to_parse_ddgs_sbatch)
                 # and submit the sbatch files:
                 # first we relax:
+                print('submitting sbatch jobs')
                 relax_call = subprocess.Popen('sbatch rosetta_relax.sbatch', stdout=subprocess.PIPE, shell=True, cwd=structure_instance.path_to_run_folder)
                 # and get the slurm id information
                 relax_process_id_info = relax_call.communicate()
@@ -103,6 +104,7 @@ def predict_stability_for_ac(uniprot_accesion, out_path):
                                 print(path_to_parse_ddgs_sbatch)
                                 # and submit the sbatch files:
                                 # first we relax:
+                                print('submitting sbatch jobs')
                                 relax_call = subprocess.Popen('sbatch rosetta_relax.sbatch', stdout=subprocess.PIPE, shell=True, cwd=model.path_to_run_folder)
                                 # and get the slurm id information
                                 relax_process_id_info = relax_call.communicate()
