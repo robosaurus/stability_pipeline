@@ -14,6 +14,8 @@ def parse_rosetta_ddgs(sys_name, chain_id, fasta_seq, uniprotAC, out_path, path_
         It only works if the sbatch job has finished.'''
     # you need to make parse rosetta ddgs into a standalone script.
     path_to_run_folder = '{}/{}/rosetta_runs/{}_{}'.format(out_path, uniprotAC, sys_name, chain_id)
+    print('the path to run folder is')
+    print(path_to_run_folder)
 
     # first lets cat all the *.ddg files, into a single text
     rosetta_summary_file = '{}_{}.rosetta_cartesian.dgs'.format(sys_name, chain_id)
@@ -32,8 +34,8 @@ def parse_rosetta_ddgs(sys_name, chain_id, fasta_seq, uniprotAC, out_path, path_
     # this list translates a structure residue index to the corresponding uniprot index
     uniprot_index_list = []
     with open(path_to_uniprot_index_list) as list_file:
-        map_as_string = list_file.readlines()
-        for number in map_as_string.split():
+        map_as_string = list_file.readlines()[0]
+        for number in map_as_string.split(','):
             uniprot_index_list.append(int(number.strip()))
 
     print(uniprot_index_list)
@@ -44,17 +46,20 @@ def parse_rosetta_ddgs(sys_name, chain_id, fasta_seq, uniprotAC, out_path, path_
     # there has got to be a more elegant way to do this...
     # ACDEFGHIKLMNPQRSTVWY
     # first open a file to write to
-    scorefile = open('{}/{}/prediction_files/{}_{}_ddg.txt'.format(out_path, uniprotAC, sys_name, chain_id), 'w')
+    scorefile = open('{}/{}/predictions/{}_{}_ddg.txt'.format(out_path, uniprotAC, sys_name, chain_id), 'w')
     # write the header
+    # print some stuff for debugging
+    for key in rosetta_cartesian_ddgs_dict:
+        print(key, rosetta_cartesian_ddgs_dict[key])
     scorefile.write('#Rosetta cartesian_ddg stability predictions for {}\n'.format(sys_name))
     scorefile.write('#sequence is {}\n'.format(fasta_seq))
     scorefile.write('UAC_pos\t A \t C \t D \t E \t F \t G \t H \t I \t K \t L \t M \t N \t P \t Q \t R \t S \t T \t V \t W \t Y \n')
     scorefile_line = '{}' + '\t {:.3}'*20 + '\n'
     for i in range(0, len(fasta_seq.strip())):
         print(i)
-        print(uniprot_index_list[str(i)])
+        print(uniprot_index_list[i])
         try:
-            scorefile.write(scorefile_line.format(uniprot_index_list[i], rosetta_cartesian_ddgs_dict[fasta_seq[i]+str(i)+'A'], rosetta_cartesian_ddgs_dict[fasta_seq[i]+str(i)+'C'], rosetta_cartesian_ddgs_dict[fasta_seq[i]+str(i)+'D'], rosetta_cartesian_ddgs_dict[fasta_seq[i]+str(i)+'E'], rosetta_cartesian_ddgs_dict[fasta_seq[i]+str(i)+'F'], rosetta_cartesian_ddgs_dict[fasta_seq[i]+str(i)+'G'], rosetta_cartesian_ddgs_dict[fasta_seq[i]+str(i)+'H'], rosetta_cartesian_ddgs_dict[fasta_seq[i]+str(i)+'I'], rosetta_cartesian_ddgs_dict[fasta_seq[i]+str(i)+'K'], rosetta_cartesian_ddgs_dict[fasta_seq[i]+str(i)+'L'], rosetta_cartesian_ddgs_dict[fasta_seq[i]+str(i)+'M'], rosetta_cartesian_ddgs_dict[fasta_seq[i]+str(i)+'N'], rosetta_cartesian_ddgs_dict[fasta_seq[i]+str(i)+'P'], rosetta_cartesian_ddgs_dict[fasta_seq[i]+str(i)+'Q'], rosetta_cartesian_ddgs_dict[fasta_seq[i]+str(i)+'R'], rosetta_cartesian_ddgs_dict[fasta_seq[i]+str(i)+'S'], rosetta_cartesian_ddgs_dict[fasta_seq[i]+str(i)+'T'], rosetta_cartesian_ddgs_dict[fasta_seq[i]+str(i)+'V'], rosetta_cartesian_ddgs_dict[fasta_seq[i]+str(i)+'W'], rosetta_cartesian_ddgs_dict[fasta_seq[i]+str(i)+'Y']))
+            scorefile.write(scorefile_line.format(uniprot_index_list[i], rosetta_cartesian_ddgs_dict[fasta_seq[i]+str(i+1)+'A'], rosetta_cartesian_ddgs_dict[fasta_seq[i]+str(i+1)+'C'], rosetta_cartesian_ddgs_dict[fasta_seq[i]+str(i+1)+'D'], rosetta_cartesian_ddgs_dict[fasta_seq[i]+str(i+1)+'E'], rosetta_cartesian_ddgs_dict[fasta_seq[i]+str(i+1)+'F'], rosetta_cartesian_ddgs_dict[fasta_seq[i]+str(i+1)+'G'], rosetta_cartesian_ddgs_dict[fasta_seq[i]+str(i+1)+'H'], rosetta_cartesian_ddgs_dict[fasta_seq[i]+str(i+1)+'I'], rosetta_cartesian_ddgs_dict[fasta_seq[i]+str(i+1)+'K'], rosetta_cartesian_ddgs_dict[fasta_seq[i]+str(i+1)+'L'], rosetta_cartesian_ddgs_dict[fasta_seq[i]+str(i+1)+'M'], rosetta_cartesian_ddgs_dict[fasta_seq[i]+str(i+1)+'N'], rosetta_cartesian_ddgs_dict[fasta_seq[i]+str(i+1)+'P'], rosetta_cartesian_ddgs_dict[fasta_seq[i]+str(i+1)+'Q'], rosetta_cartesian_ddgs_dict[fasta_seq[i]+str(i+1)+'R'], rosetta_cartesian_ddgs_dict[fasta_seq[i]+str(i+1)+'S'], rosetta_cartesian_ddgs_dict[fasta_seq[i]+str(i+1)+'T'], rosetta_cartesian_ddgs_dict[fasta_seq[i]+str(i+1)+'V'], rosetta_cartesian_ddgs_dict[fasta_seq[i]+str(i+1)+'W'], rosetta_cartesian_ddgs_dict[fasta_seq[i]+str(i+1)+'Y']))
         except(KeyError):
             print('missing DATA! on residue', i+1)
 
@@ -90,4 +95,4 @@ def parse_rosetta_ddgs(sys_name, chain_id, fasta_seq, uniprotAC, out_path, path_
 
 # and since we need to call this from the shell
 if __name__ == '__main__':
-    parse_rosetta_ddgs(sys_name=sys.argv[1], chain_id=sys.argv[2], fasta_seq=sys.argv[3], uniprotAC=sys.argv[4], path_to_uniprot_index_list=sys.argv[5])
+    parse_rosetta_ddgs(sys_name=sys.argv[1], chain_id=sys.argv[2], fasta_seq=sys.argv[3], uniprotAC=sys.argv[4], path_to_uniprot_index_list=sys.argv[5], out_path=sys.argv[6])

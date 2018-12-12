@@ -272,8 +272,7 @@ class structure:
         sbatch.write('''#!/bin/sh
 #SBATCH --job-name=Rosetta_cartesian_ddg
 #SBATCH --array=0-{}
-#SBATCH --nodes=1
-#SBATCH --time=10:00:00
+#SBATCH --time=24:00:00
 #SBATCH --mem 5000
 #SBATCH --partition=sbinlab
 #SBATCH --nice
@@ -303,7 +302,7 @@ echo $INDEX
 
 # This sbatch script launches the parse parse_rosetta_ddgs function, from the parse_cartesian_ddgs
 # it will output a file in the prediction_files/ folder.
-python3 parse_rosetta_ddgs.py {}/{}/clinvar_sAA_variants.json {}/{}/exac_sAA_variants.json {} {} {} {}'''.format(self.out_path, self.uniprotac, self.out_path, self.uniprotac, self.sys_name, self.chain_id, self.fasta_seq, self.uniprotac))
+python3 parse_rosetta_ddgs.py {} {} {} {}'''.format(self.sys_name, self.chain_id, self.fasta_seq, self.uniprotac, self.path_to_index_string, self.out_path))
         score_sbatch.close()
         return(score_sbatch_path)
 
@@ -400,8 +399,12 @@ python3 parse_rosetta_ddgs.py {}/{}/clinvar_sAA_variants.json {}/{}/exac_sAA_var
         # write the index numebers to a file, so it can be read by the parse_ddg function
         path_to_index_string = '{}/{}/{}/uniprot_index_list.txt'.format(self.out_path, self.uniprotac, self.sys_name)
         with open(path_to_index_string, 'w') as index_file:
-            index_file.write(str(structure_index_numbers))
+            index_list_as_string = ''
+            for element in structure_index_numbers:
+                index_list_as_string = index_list_as_string + ', {}'.format(str(element))
+            index_file.write(str(index_list_as_string))
 
+        self.path_to_index_string = path_to_index_string
         return(path_to_index_string)
 
     def align_pdb_to_uniprot(self):
