@@ -37,6 +37,9 @@ class albumin:
         if not os.path.isdir('{}/{}/homology_models'.format(self.out_path, self.uniprotAC)):
             os.mkdir('{}/{}/homology_models'.format(self.out_path, self.uniprotAC))
 
+        if not os.path.isdir('{}/{}/predictions'.format(self.out_path, self.uniprotAC)):
+            os.mkdir('{}/{}/predictions'.format(self.out_path, self.uniprotAC))
+
     def get_sequenced(self):
         '''this method gets downloads the fasta file of the uniprot AC,
             and parses the file to store the sequence as self.uniprot_seq'''
@@ -516,5 +519,4 @@ class albumin:
 
         # read the text as a json object
         # this will return a dictionary with 2 keys: 'query' and 'result'
-#        structure_info = json.loads(r.text)
         print(r.text)
