@@ -53,6 +53,8 @@ def predict_stability_no_submit(uniprot_accesion, out_path):
                 structure_instance.make_mutfiles()
                 # and the write the sbatch file specifying a relaxation:
                 path_to_relax_sbatch = structure_instance.rosetta_sbatch_relax()
+                # and an sbatch for parsing the relax run, and selcting the lowest scoring one
+                path_to_parse_relax_results_sbatch = structure_instance.parse_relax_sbatch(structure_instance.path_to_run_folder + '/score_bn15_calibrated.sc', structure_instance.path_to_run_folder)
                 # and the sbatch for the actual ddg calculations:
                 # in order for the clinvar variants, and the exac variants to be included,
                 # we need to add them as variables to the structure instance

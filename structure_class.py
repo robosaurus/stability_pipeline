@@ -259,6 +259,27 @@ class structure:
         print(path_to_sbatch)
         return(path_to_sbatch)
 
+    def parse_relax_sbatch(self, path_to_scorefile, path_to_run_folder):
+        '''this function writes an sbatch script, specifying the relaxation of the sctructure.
+        it returns the path to the sbatch script.
+        The flags for the relaxation are taken from rosetta_parameters/relax_flagfile'''
+
+        path_to_parse_relax_script = rosetta_paths.path_to_stability_pipeline + '/relax_parse_results.py'
+
+        path_to_sbatch = '{}/parse_relax.sbatch'.format(self.path_to_run_folder)
+        sbatch = open(path_to_sbatch, 'w')
+        sbatch.write('''#!/bin/sh
+#SBATCH --job-name=parse_relax_rosetta
+#SBATCH --time=00:10:00
+#SBATCH --mem 5000
+#SBATCH --partition=sbinlab
+
+# launching parsing script
+python {} {} {}'''.format(path_to_parse_relax_script, path_to_scorefile, path_to_run_folder))
+        sbatch.close()
+        print(path_to_sbatch)
+        return(path_to_sbatch)
+
     def write_rosetta_cartesian_sbatch(self):
         '''this function writes an sbatch file.
         it should only be called after clean, make_mutfiles, and rosetta_relax'''

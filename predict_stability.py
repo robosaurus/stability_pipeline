@@ -58,6 +58,8 @@ def predict_stability_for_ac(uniprot_accesion, out_path):
                 structure_instance.make_mutfiles()
                 # and the write the sbatch file specifying a relaxation:
                 path_to_relax_sbatch = structure_instance.rosetta_sbatch_relax()
+                # and an sbatch for parsing the relax run, and selcting the lowest scoring one
+                path_to_parse_relax_results_sbatch = structure_instance.parse_relax_sbatch(structure_instance.path_to_run_folder + '/score_bn15_calibrated.sc', structure_instance.path_to_run_folder)
                 # and the sbatch for the actual ddg calculations:
                 # in order for the clinvar variants, and the exac variants to be included,
                 # we need to add them as variables to the structure instance
@@ -73,8 +75,14 @@ def predict_stability_for_ac(uniprot_accesion, out_path):
                 relax_process_id_info = relax_call.communicate()
                 # the actual id is here:
                 relax_process_id = str(relax_process_id_info[0]).split()[3][0:-3]
-                # submit the ddg calculations, with the relaxation as a dependency
-                cart_ddg_call = subprocess.Popen('sbatch --dependency=afterany:{} rosetta_cartesian_saturation_mutagenesis.sbatch'.format(relax_process_id), stdout=subprocess.PIPE, shell=True, cwd=structure_instance.path_to_run_folder)
+                # submit the parsing of relax, with the relaxation as a dependency
+                parse_relaxation_call = subprocess.Popen('sbatch --dependency=afterany:{} parse_relax.sbatch'.format(relax_process_id), stdout=subprocess.PIPE, shell=True, cwd=structure_instance.path_to_run_folder)
+                # again we get the slurm id
+                parse_relax_process_id_info = parse_relaxation_call.communicate()
+                parse_relax_process_id = str(parse_relax_process_id_info[0]).split()[3][0:-3]
+
+                # after that we can submit the actual ddg_calculations
+                cart_ddg_call = subprocess.Popen('sbatch --dependency=afterany:{} rosetta_cartesian_saturation_mutagenesis.sbatch'.format(parse_relax_process_id), stdout=subprocess.PIPE, shell=True, cwd=structure_instance.path_to_run_folder)
                 # again we get the slurm id
                 cart_ddg_process_id_info = cart_ddg_call.communicate()
                 cart_ddg_process_id = str(cart_ddg_process_id_info[0]).split()[3][0:-3]
