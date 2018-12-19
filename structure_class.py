@@ -38,6 +38,9 @@ class structure:
         if not os.path.isdir('{}/{}/rosetta_runs'.format(self.out_path, self.uniprotac)):
             os.mkdir('{}/{}/rosetta_runs'.format(self.out_path, self.uniprotac))
 
+        if not os.path.isdir('{}/{}/predictions'.format(self.out_path, self.uniprotac)):
+            os.mkdir('{}/{}/predictions'.format(self.out_path, self.uniprotac))
+
         print(rosetta_paths.path_to_rosetta)
 
         # the most important method for the structureclass, is getting structures from the pdbe
@@ -410,7 +413,7 @@ python3 {}/parse_rosetta_ddgs.py {} {} {} {} {} {}'''.format(rosetta_paths.path_
                     # if it is a letter, and not a gap,
                     # assign the structure_index_number to the corresponding uniprot number
                     if letter != '-':
-                        structure_index_numbers.append(alignment_index_numbers[current_index])
+                        structure_index_numbers.append(str(alignment_index_numbers[current_index]))
                     # and increment the current index
                     current_index = current_index + 1
 
@@ -420,9 +423,7 @@ python3 {}/parse_rosetta_ddgs.py {} {} {} {} {} {}'''.format(rosetta_paths.path_
         # write the index numebers to a file, so it can be read by the parse_ddg function
         path_to_index_string = '{}/{}/{}/uniprot_index_list.txt'.format(self.out_path, self.uniprotac, self.sys_name)
         with open(path_to_index_string, 'w') as index_file:
-            index_list_as_string = ''
-            for element in structure_index_numbers:
-                index_list_as_string = index_list_as_string + ', {}'.format(str(element))
+            index_list_as_string = ','.join(structure_index_numbers)
             index_file.write(str(index_list_as_string))
 
         self.path_to_index_string = path_to_index_string
