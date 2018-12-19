@@ -323,7 +323,7 @@ echo $INDEX
 
 # This sbatch script launches the parse parse_rosetta_ddgs function, from the parse_cartesian_ddgs
 # it will output a file in the prediction_files/ folder.
-python3 parse_rosetta_ddgs.py {} {} {} {}'''.format(self.sys_name, self.chain_id, self.fasta_seq, self.uniprotac, self.path_to_index_string, self.out_path))
+python3 {}/parse_rosetta_ddgs.py {} {} {} {}'''.format(rosetta_paths.path_to_stability_pipeline, self.sys_name, self.chain_id, self.fasta_seq, self.uniprotac, self.path_to_index_string, self.out_path))
         score_sbatch.close()
         return(score_sbatch_path)
 
